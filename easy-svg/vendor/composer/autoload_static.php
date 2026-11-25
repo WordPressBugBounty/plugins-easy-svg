@@ -4,16 +4,12 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit94ea64f5c2f73fb7a33ff877ce4aebd4
+class ComposerStaticInit73f19d4317d05b3c7845c3c073176c16
 {
     public static $prefixLengthsPsr4 = array (
         'e' => 
         array (
             'enshrined\\svgSanitize\\' => 22,
-        ),
-        'B' => 
-        array (
-            'Benjaminzekavica\\EasySvg\\' => 25,
         ),
     );
 
@@ -21,10 +17,6 @@ class ComposerStaticInit94ea64f5c2f73fb7a33ff877ce4aebd4
         'enshrined\\svgSanitize\\' => 
         array (
             0 => __DIR__ . '/..' . '/enshrined/svg-sanitize/src',
-        ),
-        'Benjaminzekavica\\EasySvg\\' => 
-        array (
-            0 => __DIR__ . '/../..' . '/easy-svg.php',
         ),
     );
 
@@ -35,9 +27,9 @@ class ComposerStaticInit94ea64f5c2f73fb7a33ff877ce4aebd4
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit94ea64f5c2f73fb7a33ff877ce4aebd4::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit94ea64f5c2f73fb7a33ff877ce4aebd4::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit94ea64f5c2f73fb7a33ff877ce4aebd4::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit73f19d4317d05b3c7845c3c073176c16::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit73f19d4317d05b3c7845c3c073176c16::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit73f19d4317d05b3c7845c3c073176c16::$classMap;
 
         }, null, ClassLoader::class);
     }

@@ -1,17 +1,14 @@
 {
-    "name": "benjaminzekavica/easy-svg",
+    "name": "unleash-wp/easy-svg",
     "description": "Easy SVG for WordPress",
-    "autoload": {
-        "psr-4": {
-            "Benjaminzekavica\\EasySvg\\": "easy-svg.php"
-        }
-    },
+    "license": "GPL-3.0-or-later",
     "authors": [
         {
-            "name": "Benjamin Zekavica"
+            "name": "UnleashWP",
+            "homepage": "https://www.unleash-wp.com"
         }
     ],
     "require": {
-        "enshrined/svg-sanitize": "^1.1"
+        "enshrined/svg-sanitize": "^1.0"
     }
 }

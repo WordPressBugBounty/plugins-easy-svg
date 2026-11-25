@@ -1543,14 +1543,18 @@ class Sanitizer
         // (`uurl(//a)rl(//b)` becomes `url(//b)`). stripRemoteCssReferences()
         // checks its result again and drops CSS where that happened.
         $css = $this->pregReplace('~url\(\s*+[\'"]?\s*+' . self::REMOTE_URL_START . '[^)}\r\n]*\)?~i', '', $css);
+        // A javascript:/vbscript: target fetches nothing, but a stored file should not
+        // carry it. A quoted one goes up to its closing quote, so no stray quote is left
+        // to swallow the rules after it.
+        $css = $this->pregReplace('~url\(\s*+(?:([\'"])\s*+(?:java|vb)script:(?:(?!\1)[^\\\\\r\n]|\\\\.)*+\1?|(?:java|vb)script:[^)}\r\n]*+)\s*+\)?~i', '', $css);
         $css = $this->pregReplace('~@import\b[^;]*;?~i', '', $css);
         // image-set() accepts a bare remote string with no url() token of its own.
         $css = $this->stripRemoteImageSets($css);
         // A quoted remote URL can still reach a fetch from outside image-set(),
         // for example through a custom property (`--u:"https://…"` used as
         // `image-set(var(--u) 1x)`), or through image() and src(). Empty every
-        // quoted string that starts with a remote URL.
-        $css = $this->pregReplace('~([\'"])\s*+' . self::REMOTE_URL_START . '(?:[^\'"\\\\\r\n]|\\\\.)*+\1?~is', '$1$1', $css);
+        // quoted string that starts with a remote URL, or with a script URL.
+        $css = $this->pregReplace('~([\'"])\s*+(?:' . self::REMOTE_URL_START . '|(?:java|vb)script:)(?:[^\'"\\\\\r\n]|\\\\.)*+\1?~is', '$1$1', $css);
 
         return $css;
     }
