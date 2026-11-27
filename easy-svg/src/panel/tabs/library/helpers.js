@@ -148,7 +148,10 @@ export const FRAME_ROOT = { get current() { return PANEL_ROOT.current?.querySele
 const TOUCH_HOLD_MS = 250
 
 // How long a toast stays when nobody is on it.
-export const TOAST_MS = 3000
+export const TOAST_MS = 4000
+
+// The longest a pointer or focus left on it can hold it: a drop often ends right over it.
+export const TOAST_HOLD_MAX_MS = 8000
 
 // While the pointer or the focus stays on it, how often it asks again.
 export const TOAST_RECHECK_MS = 1000
@@ -406,7 +409,7 @@ export function restoredSaid(back) {
     parts.push(
       sprintf(
         // translators: %d: number of icons that were deleted from the trash before they could be restored.
-        _n('%d icon was already deleted for good.', '%d icons were already deleted for good.', gone, 'easy-svg'),
+        _n('%d icon was already deleted permanently.', '%d icons were already deleted permanently.', gone, 'easy-svg'),
         gone
       )
     )

@@ -3,7 +3,7 @@
 Plugin Name:  Easy SVG
 Plugin URI:   https://wordpress.org/plugins/easy-svg/
 Description:  Add SVG support for WordPress.
-Version:      5.0.1
+Version:      5.0.2
 Author:       UnleashWP
 Author URI:   https://www.unleash-wp.com
 Requires PHP: 8.0
@@ -74,6 +74,8 @@ define( 'EASY_SVG_API', 1 );
 
 // Panel contract; a number of its own because a filter cannot be probed for.
 define( 'EASY_SVG_PANEL_API', 1 );
+// Tells an add-on the panel reads the library again after a move out of it, so it may move rather than copy.
+define( 'EASY_SVG_LIBRARY_MOVE', 1 );
 
 // Icon contract: easy_svg_registrable_icons, easy_svg_rename_icon() and easy_svg_update_icon_markup().
 define( 'EASY_SVG_ICONS_API', 1 );
@@ -388,7 +390,7 @@ function easy_svg_clean_markup( $markup ) {
         }
     }
 
-    return $clean;
+    return easy_svg_keep_fontawesome_comment( $clean, $markup );
 }
 
 // The seven 4.1 esw_ functions: sites hook and call them, so never rename them.
@@ -691,6 +693,7 @@ add_filter( 'wp_generate_attachment_metadata', 'easy_svg_svg_attachment_metadata
 // Not admin-only: the Icon block is server-rendered, so visitors need the icons registered too.
 require_once __DIR__ . '/includes/icon-writes.php';
 require_once __DIR__ . '/includes/icon-manager.php';
+require_once __DIR__ . '/includes/icon-link.php';
 
 // Loaded last so the functions the panel wraps are defined.
 require_once __DIR__ . '/includes/panel.php';

@@ -4,7 +4,7 @@ Tags: svg, svg upload, icons, icon block, sanitize
 Requires at least: 6.6
 Tested up to: 7.2
 Requires PHP: 8.0
-Stable tag: 5.0.1
+Stable tag: 5.0.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -23,6 +23,8 @@ SVG files stay sharp at every size and are tiny on disk. WordPress still refuses
 Easy SVG cleans every file with the maintained [enshrined/svg-sanitize](https://github.com/darylldoyle/svg-sanitizer) library before it is stored, and a file that cannot be cleaned is refused. Then you use SVGs like any other image: in the block editor, as a featured image, in galleries and in custom fields.
 
 Add your own icons once, pick them in the Icon block, or print them with a shortcode or one line of PHP. The icons live in the plugin, not in your theme, so they stay when you change theme or page builder.
+
+Try it without installing: the Live Preview on this page opens a demo site with three icons in the library and on a page.
 
 Easy SVG has run on WordPress sites since 2017 and is active on more than 40,000 of them. It sends nothing to other servers, tracks nothing and loads no scripts on your front end.
 
@@ -111,6 +113,10 @@ You can also download the plugin as a zip file and upload it under Plugins → A
 The icon library is off until you switch it on under Easy SVG → Settings, so a fresh install adds only safe SVG uploads. A site that was already using SVG uploads keeps them when it updates.
 
 == Frequently Asked Questions ==
+
+= Where do I report security bugs found in this plugin? =
+
+Please report security bugs found in the source code of the Easy SVG plugin through the [Patchstack Vulnerability Disclosure Program](https://patchstack.com/database/vdp/2c97b4d3-a5a2-48a4-b4da-b527d4d12e5c). The Patchstack team will assist you with verification, CVE assignment, and notify the developers of this plugin.
 
 = Is it safe to allow SVG uploads? =
 
@@ -251,6 +257,18 @@ Easy SVG is built on these open source projects. Thank you.
 
 == Changelog ==
 
+= 5.0.2 (2026-11-26) =
+* New: icons in the Icon block can link to a page, a URL or a jump mark such as #prices, with the editor's own link field. The link is named for screen readers and says when it opens a new tab.
+* Changed: when icon sets are installed, the search finds icons in the library and in every set, in place of the All icons entry in the rail.
+* Changed: Font Awesome's licence comment stays in an SVG when it is cleaned, as Font Awesome asks.
+* Changed: colors an SVG sets through CSS classes stay when it is cleaned.
+* Changed: the library stays smooth while icons are dragged, the pager stays in reach above the footer, and a notice leaves after 4 seconds.
+* Changed: deleting from the trash reads Delete permanently. On phones and tablets Collections sits beside Edit.
+* Performance: the library loads the media library and the code editor only when a dialog needs them.
+* Fixed: an SVG whose root tag was very long lost its drawing when cleaned.
+* Fixed: set icons picked while a search was still loading were unpicked.
+* Security reports go through the Patchstack Vulnerability Disclosure Program.
+
 = 5.0.1 (2026-11-25) =
 * Changed: the plugin is called Easy SVG everywhere.
 * Changed: in a set, the icons in use come first.
@@ -315,6 +333,9 @@ Easy SVG is built on these open source projects. Thank you.
 Older versions: see the "Advanced View" of this plugin on WordPress.org.
 
 == Upgrade Notice ==
+
+= 5.0.2 =
+Icons in the Icon block can link, and Font Awesome icons keep their licence comment when cleaned.
 
 = 5.0.1 =
 Icons no longer load anything from other servers, the library notice no longer stays on screen, and icons kept from a switched-off add-on load as one cached file.

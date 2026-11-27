@@ -4,7 +4,7 @@ import { createListCollection, IconButton, Portal, Stack } from '@chakra-ui/reac
 import { TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { sortIdOf } from '../rail-sort.jsx'
 import { useBarCover } from '../overlay-top.js'
-import { LuLayoutGrid, LuLibrary } from 'react-icons/lu'
+import { LuLibrary } from 'react-icons/lu'
 import { __, _x, sprintf } from '@wordpress/i18n'
 import { SkeletonRows, SearchField } from '../../ui.jsx'
 import { Notice, ReportList } from '../parts.jsx'
@@ -32,7 +32,7 @@ import {
 } from './library/helpers.js'
 import { Tip } from './library/widgets.jsx'
 import { entryOf } from './library/RailRow.jsx'
-import { allPickedIn, emptyHere as isEmptyHere, everyIcon } from './library/library-logic.js'
+import { allPickedIn, emptyHere as isEmptyHere, everyIcon, gridView } from './library/library-logic.js'
 import { LibraryOff } from './library/LibraryOff.jsx'
 import {
   deleteDialogView,
@@ -122,6 +122,8 @@ export default function Library({ ctx }) {
     return addIds.current.get(key)
   }
   const [picked, setPicked] = useState(() => new Set())
+  // Every library id seen, so pruning a selection can tell a library pick from a set pick.
+  const libraryIds = useRef(new Set())
   // Select mode: ticks on the tiles, and a click picks instead of opening the menu.
   const [selecting, setSelecting] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -146,6 +148,9 @@ export default function Library({ ctx }) {
   )
   const { railInline, railOpen, setRailOpen, railButton, railCover } = useRailDrawer()
   const [activeDrag, setActiveDrag] = useState(null)
+  const moveNow = useRef(null)
+  const dropQueue = useRef(Promise.resolve())
+  const dropsWaiting = useRef(0)
   // `add=1` is where Media's Add icon leads: the add area is open on arrival.
   const [uploadOpen, setUploadOpen] = useState(
     () => typeof window !== 'undefined' && '1' === new URLSearchParams(window.location.search).get('add')
@@ -220,8 +225,11 @@ export default function Library({ ctx }) {
   const [copyHelp, setCopyHelp] = useState('')
   const fileRef = useRef(null)
   // An add-on's collections (contract 3), and which of them the grid shows:
-  // 'all', 'library' or a collection id.
+  // 'library' or a collection id; 'all' only while a search runs.
   const [collections, setCollections] = useState([])
+  // The newest list, for a move that finishes after renders it did not see.
+  const collectionsNow = useRef(collections)
+  collectionsNow.current = collections
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const templatesContent = useRef(null)
   // A link can open the grid on one collection (`collection=`) or with a new
@@ -229,12 +237,11 @@ export default function Library({ ctx }) {
   const linked = useRef(
     typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
   )
-  const [pickedView, setView] = useState('all')
+  const [pickedView, setView] = useState('library')
   const [providers, setProviders] = useState([])
   // How many providers failed to answer: a missing part is said, not shown as a smaller library.
   const [collectionsFailed, setCollectionsFailed] = useState(0)
-  // With no collections provider "All icons" is the library again: one entry.
-  const view = 'all' === pickedView && 0 === providers.length ? 'library' : pickedView
+  const view = gridView({ picked: pickedView, query, sets: providers.length > 0 })
   const [moved, setMoved] = useState(null)
   // How many library icons lie in the trash (every library answer says so), the list once
   // its view is open, and what each provider keeps in a trash of its own.
@@ -262,7 +269,7 @@ export default function Library({ ctx }) {
   const askedMarkup = useRef(new Set())
   // The link waits for what it names: an add-on registers its collections
   // after the panel's first load. A collection that never comes leaves the
-  // grid on All icons, and a click of the person's own ends the wait.
+  // grid on the library, and a click of the person's own ends the wait.
   useEffect(() => {
     const wanted = linked.current.get('collection')
     if (wanted && collections.some((c) => c.id === wanted)) {
@@ -275,8 +282,10 @@ export default function Library({ ctx }) {
     }
   }, [collections, providers])
 
+  // Picking a view ends a search: a search shows every set, so a pick would otherwise change nothing on screen.
   function choose(id) {
     linked.current.delete('collection')
+    setQuery('')
     setView(id)
   }
 
@@ -297,7 +306,8 @@ export default function Library({ ctx }) {
           setCollections(loaded)
           setCollectionsFailed(failed)
           // Only a fresh list ends this: lazy markup also changes the list, and would bring the tile back.
-          setLanded((was) => (was.size ? new Set() : was))
+          // Kept while drops still wait: their tiles would show again until their own move ran.
+          setLanded((was) => (was.size && !dropsWaiting.current ? new Set() : was))
         }
       })
       // Read with the collections: whatever changed a set may have changed what its provider keeps in the trash.
@@ -321,6 +331,7 @@ export default function Library({ ctx }) {
   // bare array keeps working and the total only has to be read once.
   const take = (res, filtered = false) => {
     const list = listOf(res)
+    list.forEach((ic) => libraryIds.current.add(ic.id))
     setIcons(list)
     setTotal(totalOf(res, list.length))
     // A search answer lists only the matches, so the library's size comes from the other routes.
@@ -337,9 +348,11 @@ export default function Library({ ctx }) {
         return prev
       }
       const live = new Set(list.map((ic) => ic.id))
+      const known = libraryIds.current
       const next = new Set()
+      // Set icons are never in a library answer: only a library icon that left the list is dropped.
       prev.forEach((id) => {
-        if (live.has(id)) {
+        if (live.has(id) || !known.has(id)) {
           next.add(id)
         }
       })
@@ -406,7 +419,6 @@ export default function Library({ ctx }) {
   const toolCover = useBarCover(!!openTool)
 
   // The heading counts what the list beside it shows, so the two numbers never disagree.
-  const allCount = libraryTotal + collections.reduce((n, c) => n + c.icons.length, 0)
   const exporter = providers.find((p) => 'function' === typeof p.exportIcons)
   const pickedTiles = shown.filter((ic) => picked.has(ic.id))
 
@@ -539,7 +551,20 @@ export default function Library({ ctx }) {
     focusSoon, giveBack, moved, pickedLibrary, pickedTiles, query, queryRef, reloadCollections, remember,
     removable, remove, renamer, rule, ruleRename, setBusy, setConfirming, setErr, setMoved, setPicked, setRule,
     setRuleRename, setStatus, setView, setWorking, take, view,
+    setCollections, collectionsNow, setLanded,
   })
+  // Drops wait their turn instead of being lost while the one before still runs; each turn takes the newest moveTo.
+  moveNow.current = moveTo
+  const dropMove = (target, refs) => {
+    dropsWaiting.current++
+    dropQueue.current = dropQueue.current
+      .then(() => moveNow.current(target, refs))
+      // One failed turn must not stop every drop after it.
+      .catch((e) => setErr(reasonOf(e)))
+      .finally(() => {
+        dropsWaiting.current--
+      })
+  }
   const {
     openDetails, closeDetails, openMove, confirmMove, switchIcons, removeIcon, toggleAll, togglePicked, rename,
     copyCall,
@@ -692,7 +717,6 @@ export default function Library({ ctx }) {
 
   const viewEntries = createListCollection({
     items: [
-      ...(providers.length ? [{ id: 'all', label: __('All icons', 'easy-svg'), count: allCount, icon: <LuLayoutGrid /> }] : []),
       { id: 'library', label: _x('Library', 'rail entry for the icon library', 'easy-svg'), count: libraryTotal, icon: <LuLibrary /> },
       // Always there for who may manage icons, empty or not: an entry that comes and goes is hard to find again.
       ...(ctx.canManage ? [{ id: TRASH_VIEW, label: __('Trash', 'easy-svg'), count: trashTotal, icon: <TrashGlyph /> }] : []),
@@ -794,7 +818,7 @@ export default function Library({ ctx }) {
   const search = (
     <SearchField
       id="esw-icon-search"
-      label={__('Search icons by name', 'easy-svg')}
+      label={providers.length ? __('Search all icons and sets by name', 'easy-svg') : __('Search icons by name', 'easy-svg')}
       placeholder={_x('Search', 'placeholder of the icon search field', 'easy-svg')}
       w={{ base: 'full', md: selecting ? 'ui.searchGridPick' : 'ui.searchGrid' }}
       value={query}
@@ -839,12 +863,9 @@ export default function Library({ ctx }) {
     editLabel = __('Select icons', 'easy-svg')
   } else if (editSet) {
     editLabel = __('Edit set', 'easy-svg')
-  } else if ('all' === editEntry?.id) {
-    // Its own string: "All icons" mid-sentence would keep its capital.
-    editLabel = __('Edit all icons', 'easy-svg')
   } else if (editEntry) {
     editLabel = sprintf(
-      // translators: %s: name of the view shown, e.g. All icons.
+      // translators: %s: name of the view shown, e.g. Library.
       __('Edit %s', 'easy-svg'),
       editEntry.label
     )
@@ -892,7 +913,7 @@ export default function Library({ ctx }) {
   return libraryLayoutView({
     activeDrag, addFromMedia, bulkActions, busy, collectionTiles, copierOf, copyCall, copyTargetsOf, copyTo, ctx,
     deleteDialog, deleteSetDialog, detailsDialog, dropOver, droppedOnSet, emptyHere, err, exportDialog, fileInput,
-    flipFrom, grid, headerAction, importSetDialog, noSvgNotice, messages, moveDialog, moveTo, moved, needMore, openDetails,
+    dropMove, flipFrom, grid, headerAction, importSetDialog, noSvgNotice, messages, moveDialog, moved, needMore, openDetails,
     openMove, openTrash, orderSaid, pageItems, pager, pasteDialog, pasteLabel, picked, pickedTiles, progress,
     query, railDrawer, railInline, remember, removeIcon, renameSetDialog, reorderSets, reportBox, ruleRenameDialog,
     searching, selecting, sensors, setActiveDrag, setDragging, setDropOver, setErr, setLanded, setMoved,

@@ -1,14 +1,14 @@
 import { __, _n, sprintf } from '@wordpress/i18n'
 import { binOf, joinRemoved } from '../../trash-bins.js'
 import { COPY_BATCH, MOVE_BATCH, refOf, countedLine, reasonOf, libraryPath } from './helpers.js'
-import { sendInTurns } from './library-logic.js'
+import { relocated, sendInTurns } from './library-logic.js'
 
 // Called once per render of Library, as the handlers were declared there: each closure reads that render's state.
 export function collectionActions({
   api, askList, busy, collectionTiles, collections, confirmIds, confirming, ctx, exportTooMany, exporter,
   focusSoon, giveBack, moved, pickedLibrary, pickedTiles, query, queryRef, reloadCollections, remember,
   removable, remove, renamer, rule, ruleRename, setBusy, setConfirming, setErr, setMoved, setPicked, setRule,
-  setRuleRename, setStatus, setView, setWorking, take, view,
+  setRuleRename, setStatus, setView, setWorking, take, view, setCollections, collectionsNow, setLanded,
 }) {
   async function moveTo(collection, refs) {
     // A read-only icon is copied, never moved: a mixed pick moves the rest and says so.
@@ -40,6 +40,8 @@ export function collectionActions({
     // What the add-on says it did, batch by batch; without counts the line
     // falls back to what the refs suggest.
     const tally = { moved: 0, copied: 0, exists: 0, counted: false }
+    // Every row the add-on reported, or null once one batch reported none.
+    let rows = []
     // Refs in the batches that went through, and why the next one did not.
     let sent = 0
     let failure = null
@@ -51,6 +53,7 @@ export function collectionActions({
         }
         const done = await collection.provider.move({ refs: batch, to: collection.id })
         sent += batch.length
+        rows = rows && Array.isArray(done?.rows) ? [...rows, ...done.rows] : null
         said.push(done?.message || __('Moved.', 'easy-svg'))
         if ('function' === typeof done?.undo) {
           undos.push(done.undo)
@@ -103,7 +106,25 @@ export function collectionActions({
       if (said.length) {
         setPicked(new Set())
       }
-      reloadCollections.current()
+      // Applied in place when every row is known; otherwise, and after a failure, the index is read again.
+      const local = !failure && !going.some((ref) => ref.startsWith('easy-svg/')) ? relocated(collectionsNow.current, rows) : null
+      if (local) {
+        setCollections(local)
+        // The tiles hidden at the drop are gone from their set now; a later move back must show them again.
+        setLanded((was) => {
+          const left = new Set(was)
+          rows.forEach((r) => left.delete(r.ref))
+          return left
+        })
+      } else {
+        reloadCollections.current()
+      }
+      // A library icon moved into a set leaves the library: its list is read again, or the tile stays behind.
+      if (said.length && going.some((ref) => ref.startsWith('easy-svg/'))) {
+        const term = queryRef.current.trim()
+        const isLatest = askList()
+        api.get(libraryPath(term)).then((res) => isLatest() && take(res, !!term)).catch((e) => setErr(reasonOf(e)))
+      }
       setWorking(null)
       setBusy(false)
     }
@@ -347,7 +368,7 @@ export function collectionActions({
       }
     })
     if (done && view === collection.id) {
-      setView('all')
+      setView('library')
     }
   }
 

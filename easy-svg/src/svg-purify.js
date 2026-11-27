@@ -1,5 +1,6 @@
 import DOMPurify from 'dompurify'
 import { paintStyle, pointsAway } from './panel/paint-style.js'
+import { classPaintFor, classPaintRules, keepFontAwesomeComment } from './panel/class-paint.js'
 
 // The browser's second layer under the server's sanitiser, one rule for Free and Pro, so a draft previews the same in both.
 // The svg profile keeps <style>, which restyles the whole admin page, and <image>/<feImage>, which fetch from any host.
@@ -29,10 +30,28 @@ DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
 })
 
 // What was taken out comes with the result: DOMPurify.removed belongs to this copy, not to the bundle that asks.
+// Colours set by .class rules in a <style> become attributes first, as the server does before <style> goes.
+const withClassPaint = (markup) => {
+  if (!/<style[\s>]/i.test(markup) || 'undefined' === typeof window || !window.DOMParser) return markup
+  const doc = new window.DOMParser().parseFromString(markup, 'image/svg+xml')
+  if (doc.getElementsByTagName('parsererror').length) return markup
+  const rules = classPaintRules([...doc.getElementsByTagName('style')].map((s) => s.textContent))
+  if (!rules.length) return markup
+  for (const el of doc.querySelectorAll('[class]')) {
+    for (const [prop, value] of classPaintFor(el.getAttribute('class'), rules)) el.setAttribute(prop, value)
+  }
+  return new window.XMLSerializer().serializeToString(doc)
+}
+
 export const purifySvg = (markup) => {
   try {
-    const svg = DOMPurify.sanitize(String(markup || ''), { ...PURIFY_SVG, FORBID_TAGS: [...PURIFY_SVG.FORBID_TAGS] })
-    return { svg, removed: [...(DOMPurify.removed || [])] }
+    const original = String(markup || '')
+    const clean = DOMPurify.sanitize(withClassPaint(original), { ...PURIFY_SVG, FORBID_TAGS: [...PURIFY_SVG.FORBID_TAGS] })
+    const svg = keepFontAwesomeComment(clean, original)
+    // Font Awesome's note returns on save, so it is not named among what goes.
+    const kept = svg !== clean
+    const removed = [...(DOMPurify.removed || [])].filter((r) => !(kept && '#comment' === r.element?.nodeName && /Font Awesome/.test(r.element.textContent)))
+    return { svg, removed }
   } catch {
     return { svg: '', removed: [] }
   }

@@ -14,7 +14,7 @@ import { Tip } from './widgets.jsx'
 // translators: %s: name of an icon or a set in the trash.
 const restoreName = (name) => (name ? sprintf(__('Restore %s', 'easy-svg'), name) : __('Restore', 'easy-svg'))
 // translators: %s: name of an icon or a set in the trash.
-const purgeName = (name) => (name ? sprintf(__('Delete %s for good', 'easy-svg'), name) : __('Delete for good', 'easy-svg'))
+const purgeName = (name) => (name ? sprintf(__('Delete %s permanently', 'easy-svg'), name) : __('Delete permanently', 'easy-svg'))
 
 // The two ways out of the trash, for a tile and for a provider's row. The name tells a screen reader which item.
 export function TrashMenu({ busy, name, onRestore, onPurge }) {
@@ -28,7 +28,7 @@ export function TrashMenu({ busy, name, onRestore, onPurge }) {
           </Menu.Item>
           <Menu.Item value="purge" aria-label={purgeName(name)} color="fg.error" data-danger disabled={busy} onSelect={onPurge}>
             <TrashGlyph />
-            {__('Delete for good', 'easy-svg')}
+            {__('Delete permanently', 'easy-svg')}
           </Menu.Item>
         </Menu.Content>
       </Menu.Positioner>
@@ -108,7 +108,7 @@ export function TrashRow({ entry, first, busy, selecting, picked, onPick, onMenu
                 <RestoreGlyph />
               </IconButton>
             </Tip>
-            <Tip label={__('Delete for good', 'easy-svg')}>
+            <Tip label={__('Delete permanently', 'easy-svg')}>
               <IconButton
                 {...BAR_BUTTON}
                 h="auto"

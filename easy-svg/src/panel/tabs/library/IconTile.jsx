@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef } from 'react'
+import { memo, useId, useLayoutEffect, useMemo, useRef } from 'react'
 import {
   Checkbox,
   Box,
@@ -69,7 +69,62 @@ export function CopyFormLabel({ form }) {
   )
 }
 
-export function IconTile({
+// dnd-kit renders every draggable on each pointer move; only this thin shell takes that, the tile itself is kept.
+// The grid hands each tile fresh handlers on every render; these stand-ins stay the same and call the newest ones.
+export function IconTile(props) {
+  // With no collection to drop on, a drag would only hide the tile for nothing.
+  // Not held back while busy: a drop then waits for the move before it (Library's dropMove).
+  const drag = useDraggable({ id: props.ic.id, disabled: !props.canDrag })
+  const latest = useRef(props)
+  latest.current = props
+  const stand = useMemo(() => ({ fn: {}, bulk: {}, trash: {} }), [])
+  const steady = {}
+  for (const [key, value] of Object.entries(props)) {
+    if ('function' === typeof value) {
+      stand.fn[key] ??= (...args) => latest.current[key]?.(...args)
+      steady[key] = stand.fn[key]
+    }
+  }
+  // The bulk menu and the trash tile carry handlers of their own, kept the same way.
+  for (const group of ['bulk', 'trash']) {
+    if (props[group]) {
+      const held = { ...props[group] }
+      for (const [key, value] of Object.entries(props[group])) {
+        if ('function' === typeof value) {
+          stand[group][key] ??= (...args) => latest.current[group]?.[key]?.(...args)
+          held[key] = stand[group][key]
+        }
+      }
+      steady[group] = held
+    }
+  }
+  return <TileBody {...props} {...steady} dragRef={drag.setNodeRef} dragListeners={drag.listeners} />
+}
+
+// What the tile shows, not which closure it was handed: a menu entry still comes and goes with its handler.
+const formsKey = (forms) => (forms || []).map((f) => `${f.id}|${f.label}|${f.disabled ? 1 : 0}|${f.text || ''}`).join('\n')
+const bulkKey = (bulk) => (bulk ? `${bulk.count}|${bulk.anyOn ? 1 : 0}|${bulk.anyOff ? 1 : 0}|${Object.keys(bulk).filter((k) => bulk[k]).sort().join()}` : '')
+function sameTile(a, b) {
+  for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if ('forms' === key) {
+      if (formsKey(a.forms) !== formsKey(b.forms)) return false
+    } else if ('bulk' === key) {
+      if (bulkKey(a.bulk) !== bulkKey(b.bulk)) return false
+    } else if ('trash' === key) {
+      if (!!a.trash !== !!b.trash || a.trash?.when !== b.trash?.when) return false
+    } else if ('ic' === key) {
+      // The trash hands a fresh copy each render; same id, drawing, name and state draw the same tile.
+      if (a.ic !== b.ic && ['id', 'key', 'ref', 'slug', 'label', 'content', 'off', 'collection', 'source', 'readonly', 'canRename', 'canRemove', 'canSwitch', 'when', 'title', 'name'].some((k) => a.ic?.[k] !== b.ic?.[k])) return false
+    } else if (a[key] !== b[key]) {
+      return false
+    }
+  }
+  return true
+}
+
+const TileBody = memo(function TileBody({
+  dragRef,
+  dragListeners,
   ic,
   bulk = null,
   away = false,
@@ -91,8 +146,6 @@ export function IconTile({
   trash = null,
 }) {
   const name = nameOf(ic)
-  // With no collection to drop on, a drag would only hide the tile for nothing.
-  const drag = useDraggable({ id: ic.id, disabled: busy || !canDrag })
   // Centred once the drawing is laid out, and again when it changes.
   const faceRef = useRef(null)
   const scope = useId()
@@ -273,8 +326,8 @@ export function IconTile({
   const card = (
     <Card.Root
       data-icon-key={ic.key || ic.ref || `easy-svg/${ic.slug}`}
-      ref={drag.setNodeRef}
-      {...drag.listeners}
+      ref={dragRef}
+      {...dragListeners}
       // Taken out while it travels: the others close the gap.
       display={away ? 'none' : undefined}
       touchAction="manipulation"
@@ -368,4 +421,4 @@ export function IconTile({
       {trash ? <TrashMenu busy={busy} name={name} onRestore={trash.onRestore} onPurge={trash.onPurge} /> : bulkMenu || menu}
     </Menu.Root>
   )
-}
+}, sameTile)

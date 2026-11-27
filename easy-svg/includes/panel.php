@@ -132,6 +132,62 @@ function easy_svg_panel_menu_icon_css(): void {
 add_action( 'admin_enqueue_scripts', 'easy_svg_panel_menu_icon_css' );
 add_filter( 'submenu_file', 'easy_svg_panel_current_submenu' );
 add_action( 'admin_enqueue_scripts', 'easy_svg_panel_assets' );
+
+// The media library and the code editor are the panel's largest scripts and serve one dialog each.
+const EASY_SVG_PANEL_HELD = array( 'media-editor', 'media-audiovideo', 'mce-view', 'code-editor', 'htmlhint', 'csslint', 'jshint', 'htmlhint-kses', 'jsonlint' );
+
+/** @return array<string,true> Every handle the given ones need, themselves included. */
+function easy_svg_panel_script_closure( array $handles ): array {
+	$registered = wp_scripts()->registered;
+	$seen       = array();
+	while ( array() !== $handles ) {
+		$handle = (string) array_pop( $handles );
+		if ( isset( $seen[ $handle ] ) || ! isset( $registered[ $handle ] ) ) {
+			continue;
+		}
+		$seen[ $handle ] = true;
+		$handles         = array_merge( $handles, (array) $registered[ $handle ]->deps );
+	}
+	return $seen;
+}
+
+// Only what nothing else on the page needs: jQuery, i18n and the like still load as always.
+/** @return list<string> */
+function easy_svg_panel_held_handles(): array {
+	$queue = wp_scripts()->queue;
+	$held  = easy_svg_panel_script_closure( array_values( array_intersect( EASY_SVG_PANEL_HELD, $queue ) ) );
+	$other = easy_svg_panel_script_closure( array_values( array_diff( $queue, EASY_SVG_PANEL_HELD ) ) );
+	return array_keys( array_diff_key( $held, $other ) );
+}
+
+// Printed as inert text before the footer prints; window's runHeld() runs it in order when first asked.
+function easy_svg_panel_hold_scripts(): void {
+	$scripts = wp_scripts();
+	$held    = array_values( array_diff( easy_svg_panel_held_handles(), $scripts->done ) );
+	if ( array() === $held ) {
+		return;
+	}
+	// Everything else counts as printed while the held part is written, so none of it lands in the text.
+	$done           = $scripts->done;
+	$scripts->done  = array_values( array_unique( array_merge( $done, array_keys( easy_svg_panel_script_closure( array_values( array_diff( $scripts->queue, $held ) ) ) ) ) ) );
+	ob_start();
+	$scripts->do_items( $held );
+	$html = (string) ob_get_clean();
+	$json = wp_json_encode( $html, JSON_HEX_TAG | JSON_HEX_AMP );
+	// Text JSON cannot carry (broken UTF-8 in an inline script) is printed as it came, so Upload and Paste still work.
+	if ( false === $json ) {
+		$scripts->done = $done;
+		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WP_Scripts' own output, printed as WordPress would.
+		$scripts->done = array_values( array_unique( array_merge( $done, $held ) ) );
+		return;
+	}
+	$scripts->done = array_values( array_unique( array_merge( $done, $held ) ) );
+	foreach ( $held as $handle ) {
+		$scripts->dequeue( $handle );
+	}
+	// The JSON's < and & are hexed, so it cannot close the element it sits in.
+	printf( '<script type="application/json" data-easy-svg-held>%s</script>', $json ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- see above.
+}
 add_action( 'rest_api_init', 'easy_svg_panel_rest' );
 
 // $menu is keyed by position and sorted by key, so the last place is one past the highest key.
@@ -426,6 +482,12 @@ function easy_svg_panel_assets( $hook ): void {
 
 	// False when the user switched syntax highlighting off; the dialog then keeps a plain field.
 	$code_editor = wp_enqueue_code_editor( array( 'type' => 'text/html' ) );
+
+	// Both are written into the page but run only when Upload or Paste is first opened; their own parts move to the footer for that.
+	foreach ( function_exists( 'wp_scripts' ) ? easy_svg_panel_held_handles() : array() as $handle ) {
+		wp_scripts()->add_data( $handle, 'group', 1 );
+	}
+	add_action( 'admin_print_footer_scripts', 'easy_svg_panel_hold_scripts', 1 );
 
 	// React, ReactDOM, the JSX runtime and wp.i18n come from WordPress, Chakra and the theme from easy-svg-ui.
 	wp_enqueue_script(

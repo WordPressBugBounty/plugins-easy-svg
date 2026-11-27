@@ -725,6 +725,26 @@ export function shallowEqual(a, b) {
 // The drop prevents the default, so useDropGuard leaves it alone.
 export function useDropZone({ onFiles, disabled }) {
   const [isOver, setOver] = useState(false)
+  // A file let go elsewhere, or dragged out of the window, never sends this zone a leave: the mark would stay.
+  useEffect(() => {
+    if (!isOver) {
+      return undefined
+    }
+    const clear = () => setOver(false)
+    const left = (e) => {
+      if (!e.relatedTarget) {
+        setOver(false)
+      }
+    }
+    window.addEventListener('drop', clear, true)
+    window.addEventListener('dragend', clear, true)
+    window.addEventListener('dragleave', left, true)
+    return () => {
+      window.removeEventListener('drop', clear, true)
+      window.removeEventListener('dragend', clear, true)
+      window.removeEventListener('dragleave', left, true)
+    }
+  }, [isOver])
   if (disabled) {
     return { isOver: false, props: {} }
   }

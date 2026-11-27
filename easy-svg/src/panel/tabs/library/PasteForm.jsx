@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { runHeld } from '../../held.js'
 import {
   Alert,
   Button,
@@ -47,10 +48,19 @@ function CodeEditor({ id, value, onChange, label }) {
   const mirror = useRef(null)
   const change = useRef(onChange)
   change.current = onChange
+  // The code editor's scripts load on first use; until then the field is a plain textarea.
+  const [ready, setReady] = useState(!!window.wp?.codeEditor)
+  useEffect(() => {
+    let live = true
+    runHeld().then(() => live && setReady(!!window.wp?.codeEditor))
+    return () => {
+      live = false
+    }
+  }, [])
   useEffect(() => {
     const settings = window.EasySvgPanelData?.codeEditor
     const editor = window.wp?.codeEditor
-    if (!settings || !editor || !area.current) {
+    if (!ready || !settings || !editor || !area.current) {
       return undefined
     }
     const made = editor.initialize(area.current, {
@@ -70,7 +80,7 @@ function CodeEditor({ id, value, onChange, label }) {
       cm.toTextArea()
       mirror.current = null
     }
-  }, [label])
+  }, [label, ready])
   // A value set from outside (a cleared form) reaches the editor too.
   useEffect(() => {
     if (mirror.current && mirror.current.getValue() !== value) {

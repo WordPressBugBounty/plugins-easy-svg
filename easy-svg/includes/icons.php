@@ -667,7 +667,8 @@ function easy_svg_icon_paint_style( $style ) {
             continue;
         }
         $property = strtolower( trim( substr( $declaration, 0, $at ) ) );
-        $value    = trim( substr( $declaration, $at + 1 ) );
+        // A presentation attribute takes no !important; kept, the whole value would be invalid and the shape turn black.
+        $value    = trim( (string) preg_replace( '/\s*!\s*important\s*$/i', '', trim( substr( $declaration, $at + 1 ) ) ) );
         if ( '' === $value || ! in_array( $property, EASY_SVG_ICON_PAINT_PROPERTIES, true ) ) {
             continue;
         }
@@ -700,6 +701,84 @@ function easy_svg_icon_paint_attributes( $element, $style ) {
         $element->setAttribute( $property, $value );
     }
     return implode( ';', $rest );
+}
+
+// Only `.a, .b { paint }` rules, through the same paint filter as style=; anything else in the sheet is dropped with it.
+/**
+ * @param DOMDocument $doc
+ * @param DOMXPath    $xpath
+ */
+function easy_svg_icon_inline_class_paint( $doc, $xpath ) {
+    // In sheet order, as the browser ranks equal rules: a later rule wins whatever order the classes are named in.
+    $rules = array();
+    foreach ( iterator_to_array( $xpath->query( '//*[local-name()="style"]' ) ) as $sheet ) {
+        $css = (string) preg_replace( '#/\*.*?\*/#s', '', (string) $sheet->textContent );
+        // Rules inside @media or @supports apply only sometimes; dropped rather than applied always.
+        $css = easy_svg_css_without_at_blocks( $css );
+        if ( ! preg_match_all( '/([^{}]+)\{([^{}]*)\}/', $css, $found, PREG_SET_ORDER ) ) {
+            continue;
+        }
+        foreach ( $found as $rule ) {
+            $paint = easy_svg_icon_paint_style( $rule[2] );
+            if ( '' === $paint ) {
+                continue;
+            }
+            foreach ( explode( ',', $rule[1] ) as $selector ) {
+                if ( 1 === preg_match( '/^\s*\.(-?[A-Za-z_][\w-]*)\s*$/', $selector, $m ) ) {
+                    $rules[] = array( $m[1], $paint );
+                }
+            }
+        }
+    }
+    if ( array() === $rules ) {
+        return;
+    }
+    foreach ( $xpath->query( '//*[@class]' ) as $element ) {
+        if ( ! $element instanceof DOMElement ) {
+            continue;
+        }
+        $names = array_flip( preg_split( '/\s+/', trim( $element->getAttribute( 'class' ) ) ) ?: array() );
+        $paint = array();
+        foreach ( $rules as $rule ) {
+            if ( isset( $names[ $rule[0] ] ) ) {
+                $paint[] = $rule[1];
+            }
+        }
+        if ( array() !== $paint ) {
+            // A style= on the shape still wins: it is applied after this, as the browser would rank it.
+            easy_svg_icon_paint_attributes( $element, implode( ';', $paint ) );
+        }
+    }
+}
+
+// Removes every @-block with its nested rules; braces are counted, so a block inside a block goes too.
+function easy_svg_css_without_at_blocks( $css ) {
+    $out   = '';
+    $depth = 0;
+    $skip  = false;
+    $len   = strlen( (string) $css );
+    for ( $i = 0; $i < $len; $i++ ) {
+        $c = $css[ $i ];
+        if ( ! $skip && '@' === $c && 0 === $depth ) {
+            $skip = true;
+        }
+        if ( '{' === $c ) {
+            $depth++;
+        } elseif ( '}' === $c ) {
+            $depth = max( 0, $depth - 1 );
+            if ( $skip && 0 === $depth ) {
+                $skip = false;
+                continue;
+            }
+        } elseif ( $skip && ';' === $c && 0 === $depth ) {
+            $skip = false;
+            continue;
+        }
+        if ( ! $skip ) {
+            $out .= $c;
+        }
+    }
+    return $out;
 }
 
 /** @param DOMElement $element */
@@ -753,6 +832,9 @@ function easy_svg_harden_icon_markup( $markup ) {
             $node->parentNode->replaceChild( $doc->createTextNode( $node->data ), $node );
         }
     }
+
+    // Editors colour shapes through class rules in <style>; the colours move onto the shapes before the element goes.
+    easy_svg_icon_inline_class_paint( $doc, $xpath );
 
     // Snapshot first: removing nodes while walking a live list skips some.
     $doomed = array();
@@ -853,7 +935,24 @@ function easy_svg_harden_icon_markup( $markup ) {
         return '';
     }
 
-    return (string) $doc->saveXML( $doc->documentElement );
+    return easy_svg_keep_fontawesome_comment( (string) $doc->saveXML( $doc->documentElement ), $markup );
+}
+
+// Font Awesome's licence note stays. Rebuilt from fixed words and two numbers: nothing else of a file's comment returns.
+function easy_svg_keep_fontawesome_comment( $clean, $original ) {
+    $clean = (string) $clean;
+    $found = '/<!--!\s*Font Awesome ([A-Z][a-z]{2,7}\+?) (\d{1,3}\.\d{1,3}\.\d{1,3}) by @fontawesome(?:(?!-->).)*?(?:Copyright (\d{4}) Fonticons|-->)/s';
+    if ( str_contains( $clean, '<!--! Font Awesome' ) || 1 !== preg_match( $found, (string) $original, $m ) ) {
+        return $clean;
+    }
+    $licence = 'Free' === $m[1]
+        ? 'https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)'
+        : 'https://fontawesome.com/license (Commercial License)';
+    $year    = isset( $m[3] ) ? ' ' . $m[3] : '';
+    $comment = "<!--! Font Awesome {$m[1]} {$m[2]} by @fontawesome - https://fontawesome.com License - {$licence} Copyright{$year} Fonticons, Inc. -->";
+
+    $out = preg_replace( '/<svg\b(?:[^>"\']++|"[^"]*+"|\'[^\']*+\')*+(?<!\/)>/', '$0' . $comment, $clean, 1 );
+    return is_string( $out ) ? $out : $clean;
 }
 
 // Bounds are injected so a CLI import can ask for none.
@@ -908,8 +1007,8 @@ function easy_svg_accept_icon( $label, $markup, $sanitize, $slugger = null, $max
     return array(
         'state'   => 'ok',
         'slug'    => $slug,
-        // Only the cleaned, hardened markup is ever stored.
-        'content' => $clean,
+        // Only cleaned, hardened markup is stored; the licence note is read off the file as it came.
+        'content' => easy_svg_keep_fontawesome_comment( $clean, $markup ),
     );
 }
 

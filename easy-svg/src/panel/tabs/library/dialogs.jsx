@@ -49,7 +49,7 @@ export function deleteDialogView({
                   : 'picked' === purging.kind
                     ? sprintf(
                         // translators: %s: what is deleted, e.g. "3 icons and 1 set".
-                        __('Delete %s for good', 'easy-svg'),
+                        __('Delete %s permanently', 'easy-svg'),
                         trashWords(
                           purging.icons.length + purging.rows.filter((row) => row.bin.icons).length,
                           purging.rows.filter((row) => !row.bin.icons).length
@@ -57,7 +57,7 @@ export function deleteDialogView({
                       )
                   : sprintf(
                       // translators: %s: name of the icon or set in the trash.
-                      __('Delete “%s” for good', 'easy-svg'),
+                      __('Delete “%s” permanently', 'easy-svg'),
                       confirmName
                     )
                 : confirming && confirming.bulk
@@ -97,7 +97,7 @@ export function deleteDialogView({
             </Dialog.ActionTrigger>
             <Button variant="solid" colorPalette="red" onClick={purging ? confirmPurge : confirmRemove} loading={busy}>
               <TrashGlyph />
-              {purging ? ('all' === purging.kind ? __('Empty trash', 'easy-svg') : __('Delete for good', 'easy-svg')) : __('Delete', 'easy-svg')}
+              {purging ? ('all' === purging.kind ? __('Empty trash', 'easy-svg') : __('Delete permanently', 'easy-svg')) : __('Delete', 'easy-svg')}
             </Button>
           </Dialog.Footer>
           </Hold>
@@ -287,7 +287,8 @@ export function pagerView({ busy, extra, libraryCount, onPage, pageCount, setPag
         </Pagination.PrevTrigger>
         <Pagination.PageText
           fontSize="ui.md"
-          color="ui.muted"
+          fontWeight="semibold"
+          color="ui.heading"
           format={({ page, totalPages }) =>
             sprintf(
               // translators: 1: the page shown, 2: how many pages there are.

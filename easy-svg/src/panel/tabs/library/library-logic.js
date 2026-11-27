@@ -6,6 +6,14 @@ export const refOf = (ic) => ic.ref || `easy-svg/${ic.slug}`
 // Icons in use first, the switched-off ones after them; each keeps its order. The library is paged by the server, so as it answered.
 const onFirst = (list) => [...list.filter((ic) => !ic.off), ...list.filter((ic) => ic.off)]
 
+// No rail entry shows every icon at once; a search does, across the library and every set.
+export function gridView({ picked, query, sets }) {
+  if (sets && query.trim()) {
+    return 'all'
+  }
+  return 'all' === picked ? 'library' : picked
+}
+
 // Icons moved onto a set leave the grid at once; the move's answer brings them back where they belong.
 export function shownIcons({ view, icons, collectionTiles, landed }) {
   if ('library' === view) {
@@ -58,7 +66,7 @@ export function pageWindow({ all, page, perPage, shown, total, view }) {
   }
 }
 
-// Empty, with the upload area in place of Edit and the tools: All icons counts like the library, a search never does.
+// Empty, with the upload area in place of Edit and the tools: a search never counts as empty.
 export function emptyHere({ shown, query, searching, intoSet, view }) {
   return !shown.length && !query.trim() && !searching && (!!intoSet || 'library' === view || 'all' === view)
 }
@@ -105,4 +113,35 @@ export async function sendInTurns({ refs, size, send, progress }) {
     queue.unshift(...again)
   }
   return { answers, sent, failure, stalled, resent: answers.some((d) => (d?.rows ?? []).some((r) => 'over_limit' === r?.state)) }
+}
+
+// A move the add-on reported row by row is applied here, so the whole index is not read again; null asks for the read.
+export function relocated(collections, rows) {
+  // A partial row leaves the icon in both places, which the read shows best.
+  if (!Array.isArray(rows) || rows.some((r) => !['moved', 'exists', 'copied'].includes(r?.state))) {
+    return null
+  }
+  let list = collections
+  for (const row of rows.filter((r) => 'moved' === r.state || 'copied' === r.state)) {
+    const [fromId] = String(row.ref).split('/')
+    const [toId, ...rest] = String(row.to_ref || '').split('/')
+    const from = list.find((c) => c.id === fromId)
+    const icon = from?.icons.find((ic) => ic.ref === row.ref)
+    const to = list.find((c) => c.id === toId)
+    if (!icon || !to) {
+      return null
+    }
+    const slug = rest.join('/')
+    const moved = { ...icon, ref: row.to_ref, slug, key: row.to_ref }
+    list = list.map((c) => {
+      if (c.id === fromId && 'moved' === row.state) {
+        return { ...c, icons: c.icons.filter((ic) => ic.ref !== row.ref) }
+      }
+      if (c.id === toId && !c.icons.some((ic) => ic.ref === row.to_ref)) {
+        return { ...c, icons: [...c.icons, moved] }
+      }
+      return c
+    })
+  }
+  return list
 }

@@ -318,6 +318,10 @@ export const config = defineConfig({
             sm: { h: '11', minW: '11', px: '5', textStyle: 'md', fontSize: 'ui.body', fontWeight: '500' },
             md: { h: '11', minW: '11', px: '5', textStyle: 'md', fontSize: 'ui.body', fontWeight: '500' },
           },
+          // A light button on a light page barely changed on hover; the border now darkens to its text colour.
+          variant: {
+            outline: { _hover: { borderColor: 'colorPalette.fg' } },
+          },
         },
       },
       input: {

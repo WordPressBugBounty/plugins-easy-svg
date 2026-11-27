@@ -269,7 +269,7 @@ export function trashActions({
         const parts = [
           sprintf(
             // translators: %d: number of icons or sets deleted from the trash.
-            _n('%d item deleted for good.', '%d items deleted for good.', gone, 'easy-svg'),
+            _n('%d item deleted permanently.', '%d items deleted permanently.', gone, 'easy-svg'),
             gone
           ),
         ]

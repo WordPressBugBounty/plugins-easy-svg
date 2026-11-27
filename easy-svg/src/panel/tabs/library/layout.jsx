@@ -42,7 +42,7 @@ function LiftedToast(props) {
 export function libraryLayoutView({
   activeDrag, addFromMedia, bulkActions, busy, collectionTiles, copierOf, copyCall, copyTargetsOf, copyTo, ctx,
   deleteDialog, deleteSetDialog, detailsDialog, dropOver, droppedOnSet, emptyHere, err, exportDialog, fileInput,
-  flipFrom, grid, headerAction, importSetDialog, noSvgNotice, messages, moveDialog, moveTo, moved, needMore, openDetails,
+  dropMove, flipFrom, grid, headerAction, importSetDialog, noSvgNotice, messages, moveDialog, moved, needMore, openDetails,
   openMove, openTrash, orderSaid, pageItems, pager, pasteDialog, pasteLabel, picked, pickedTiles, progress,
   query, railDrawer, railInline, remember, removeIcon, renameSetDialog, reorderSets, reportBox, ruleRenameDialog,
   searching, selecting, sensors, setActiveDrag, setDragging, setDropOver, setErr, setLanded, setMoved,
@@ -182,13 +182,13 @@ export function libraryLayoutView({
           flipFrom.current = snapTiles()
           droppedOnSet.current = !!target && refs.length > 0
           if (droppedOnSet.current) {
-            setLanded(landedRefs({ refs, target, collectionTiles }))
+            setLanded((was) => new Set([...was, ...landedRefs({ refs, target, collectionTiles })]))
           }
           setActiveDrag(null)
           setDragging(false)
           setDropOver(null)
           if (target && refs.length) {
-            moveTo(target, refs)
+            dropMove(target, refs)
           }
         }}
         onDragCancel={() => {
@@ -337,7 +337,8 @@ export function libraryLayoutView({
           {/* A real <button> as the last tile, so the keyboard reaches it. */}
         </SimpleGrid>
         {needMore ? <Box pt="3"><SkeletonRows rows={2} /></Box> : null}
-        {pager ? <Flex pt="5" justify="center">{pager}</Flex> : null}
+        {/* Stays in reach at the bottom of the window: with dozens of pages, scrolling down for it each time is the slow part. */}
+        {pager ? <Flex data-pager-bar position="sticky" bottom="var(--esw-foot-h, 0)" zIndex="4" mt="5" py="3" justify="center" bg="ui.bg" css={{ '&::before': { content: '""', position: 'absolute', insetInline: '0', bottom: '100%', height: '14', pointerEvents: 'none', bgImage: 'linear-gradient(to bottom, transparent, {colors.ui.bg})' } }}>{pager}</Flex> : null}
 
         {shown.length === 0 && query.trim() ? (
           <Nothing

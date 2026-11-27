@@ -289,6 +289,9 @@ export default function App({ config }) {
       if (el) {
         const below = document.documentElement.scrollHeight - window.innerHeight - window.scrollY
         el.style.setProperty('--esw-foot', String(Math.min(1, Math.max(0, below) / 48)))
+        // What sticks at the bottom of the grid (the pager) sits above this footer while the footer itself sticks.
+        const sticks = 'sticky' === window.getComputedStyle(el).position
+        el.parentElement?.style.setProperty('--esw-foot-h', `${sticks ? Math.ceil(el.getBoundingClientRect().height) : 0}px`)
       }
     }
     const later = () => {

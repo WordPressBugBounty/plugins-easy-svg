@@ -41,7 +41,7 @@ export function toolbarView({
       size="md"
       variant="outline"
       bg="ui.surface"
-      _hover={{ bg: 'ui.sunk' }}
+      _hover={{ bg: 'ui.menuHover' }}
       flexShrink="0"
       minW="11"
       aria-haspopup="dialog"
@@ -100,8 +100,8 @@ export function toolbarView({
                 <RestoreGlyph />
               </IconButton>
             </Tip>
-            <Tip label={__('Delete for good', 'easy-svg')}>
-              <IconButton {...BAR_BUTTON} data-trash-purge colorPalette="red" aria-label={__('Delete for good', 'easy-svg')} disabled={busy} onClick={() => askPurge({ kind: 'picked', icons: pickedIcons.map((ic) => ic.id), rows: pickedEntries })}>
+            <Tip label={__('Delete permanently', 'easy-svg')}>
+              <IconButton {...BAR_BUTTON} data-trash-purge colorPalette="red" aria-label={__('Delete permanently', 'easy-svg')} disabled={busy} onClick={() => askPurge({ kind: 'picked', icons: pickedIcons.map((ic) => ic.id), rows: pickedEntries })}>
                 <TrashGlyph />
               </IconButton>
             </Tip>
@@ -255,14 +255,14 @@ export function toolbarView({
     <Flex data-toolbar gap="4" flexWrap="wrap" align="center" justify="space-between" minH="14">
       {/* Nothing to edit in an empty view: a pale disabled button read as broken. */}
       {emptyHere ? null : (
-        <Button size="md" variant="outline" bg="ui.surface" _hover={{ bg: 'ui.sunk' }} disabled={!(trashOpen ? trashKeys.length : own.length)} onClick={() => setSelecting(true)} aria-label={editLabel === editWord ? undefined : editLabel}>
+        <Button size="md" variant="outline" bg="ui.surface" _hover={{ bg: 'ui.menuHover' }} disabled={!(trashOpen ? trashKeys.length : own.length)} onClick={() => setSelecting(true)} aria-label={editLabel === editWord ? undefined : editLabel}>
           {editSet?.readonly ? <LuCheck /> : <LuPencil />}
           {editWord}
         </Button>
       )}
-      {/* A row of its own on a phone, under Edit; there the search takes a full row below Collections. On a tablet it wraps rather than shrinks. */}
+      {/* On a phone and tablet Collections sits beside Edit, on one line; the search takes the row below. */}
+      {railInline ? null : <Box ms="auto">{railOpener}</Box>}
       <HStack gap="3" rowGap="3" flexWrap={{ base: 'wrap', lg: 'nowrap' }} flex={{ base: '1 1 100%', md: '1' }} minW="0" justify="flex-end">
-        {railInline ? null : railOpener}
         {trashOpen ? (
           <Button data-empty-trash size="md" variant="outline" colorPalette="red" bg="ui.surface" flexShrink="0" disabled={busy || !trashTotal} onClick={() => askPurge({ kind: 'all' })}>
             <TrashGlyph />

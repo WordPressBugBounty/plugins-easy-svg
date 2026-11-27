@@ -82,7 +82,7 @@ export function toolsView({ ctx, toolList }) {
             size="md"
             variant="outline"
             bg="ui.surface"
-            _hover={{ bg: 'ui.sunk' }}
+            _hover={{ bg: 'ui.menuHover' }}
             css={{ '& svg': { width: '5', height: '5' } }}
             onClick={() => ctx.goTo(t.id)}
           >

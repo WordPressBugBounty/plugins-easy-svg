@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n'
+import { runHeld } from '../../held.js'
 import { addedMessage, MEDIA_CHUNK, readText, reportSummary } from './helpers.js'
 
 // Called once per render of Library, as the handlers were declared there: each closure reads that render's state.
@@ -8,6 +9,7 @@ export function addActions({
 }) {
   // Only ids travel, so an offloaded library is a clear refusal per file instead of a CORS error.
   async function addFromMedia() {
+    await runHeld()
     const media = window.wp && window.wp.media
     // Without the media library the files still go in, through the browser's own chooser.
     if (!media) {

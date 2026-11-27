@@ -6,7 +6,7 @@ import { missingMarkup, withMarkup } from '../../lazy-markup.js'
 import { latestOnly } from '../../load-guard.js'
 import { appendUnique, binTotal } from '../../trash-bins.js'
 import { detailIcon, pageWindow, shownIcons } from './library-logic.js'
-import { TOAST_MS, TOAST_RECHECK_MS, PANEL_ROOT, STUCK_RANGE, listOf, totalOf, PAGE, PER_PAGE, TRASH_VIEW, TRASH_PAGE, libraryPath } from './helpers.js'
+import { TOAST_HOLD_MAX_MS, TOAST_MS, TOAST_RECHECK_MS, PANEL_ROOT, STUCK_RANGE, listOf, totalOf, PAGE, PER_PAGE, TRASH_VIEW, TRASH_PAGE, libraryPath } from './helpers.js'
 
 export function useKeyHandler() {
   // Shortcuts never fire while typing in a field or while a dialog is open.
@@ -269,9 +269,10 @@ export function useToast({ moved, setMoved, setStatus, status }) {
       return undefined
     }
     let t
+    const shown = Date.now()
     const leave = () => {
       const box = PANEL_ROOT.current?.querySelector('[data-library-toast]')
-      if (box && (box.matches(':hover') || box.querySelector(':focus-visible'))) {
+      if (box && Date.now() - shown < TOAST_HOLD_MAX_MS && (box.matches(':hover') || box.querySelector(':focus-visible'))) {
         t = window.setTimeout(leave, TOAST_RECHECK_MS)
         return
       }
