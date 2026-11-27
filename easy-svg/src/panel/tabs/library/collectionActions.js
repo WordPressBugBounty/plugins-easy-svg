@@ -1,14 +1,14 @@
 import { __, _n, sprintf } from '@wordpress/i18n'
 import { binOf, joinRemoved } from '../../trash-bins.js'
 import { COPY_BATCH, MOVE_BATCH, refOf, countedLine, reasonOf, libraryPath } from './helpers.js'
-import { relocated, sendInTurns } from './library-logic.js'
+import { notMoved, relocated, sendInTurns } from './library-logic.js'
 
 // Called once per render of Library, as the handlers were declared there: each closure reads that render's state.
 export function collectionActions({
   api, askList, busy, collectionTiles, collections, confirmIds, confirming, ctx, exportTooMany, exporter,
   focusSoon, giveBack, moved, pickedLibrary, pickedTiles, query, queryRef, reloadCollections, remember,
   removable, remove, renamer, rule, ruleRename, setBusy, setConfirming, setErr, setMoved, setPicked, setRule,
-  setRuleRename, setStatus, setView, setWorking, take, view, setCollections, collectionsNow, setLanded,
+  setRuleRename, setStatus, setView, setWorking, take, view, setCollections, collectionsNow, setLanded, hide, show,
 }) {
   async function moveTo(collection, refs) {
     // A read-only icon is copied, never moved: a mixed pick moves the rest and says so.
@@ -33,6 +33,8 @@ export function collectionActions({
     }
     setBusy(true)
     setErr('')
+    hide(going)
+    const fromLibrary = going.filter((ref) => ref.startsWith('easy-svg/'))
     // A provider takes a bounded batch, so a big selection goes in turns; the
     // way back undoes them newest first.
     const said = []
@@ -97,6 +99,10 @@ export function collectionActions({
                     for (const undo of undos.slice().reverse()) {
                       back.push((await undo())?.message || __('Undone.', 'easy-svg'))
                     }
+                    if ('easy-svg' === collection.id) {
+                      const term = queryRef.current.trim()
+                      take(await api.get(libraryPath(term)), !!term)
+                    }
                     return { message: back.join(' ') }
                   }
                 : null,
@@ -107,7 +113,7 @@ export function collectionActions({
         setPicked(new Set())
       }
       // Applied in place when every row is known; otherwise, and after a failure, the index is read again.
-      const local = !failure && !going.some((ref) => ref.startsWith('easy-svg/')) ? relocated(collectionsNow.current, rows) : null
+      const local = !failure && !fromLibrary.length ? relocated(collectionsNow.current, rows) : null
       if (local) {
         setCollections(local)
         // The tiles hidden at the drop are gone from their set now; a later move back must show them again.
@@ -119,11 +125,16 @@ export function collectionActions({
       } else {
         reloadCollections.current()
       }
-      // A library icon moved into a set leaves the library: its list is read again, or the tile stays behind.
-      if (said.length && going.some((ref) => ref.startsWith('easy-svg/'))) {
+      // Set tiles that did not move show again now; a moved one stays away until the read drops it.
+      const back = said.length ? notMoved({ going, rows }) : going
+      show(back.filter((ref) => !ref.startsWith('easy-svg/')))
+      // The library gained or lost icons: its list is read again, or its tiles stay as they were.
+      if (said.length && (fromLibrary.length || 'easy-svg' === collection.id)) {
         const term = queryRef.current.trim()
         const isLatest = askList()
-        api.get(libraryPath(term)).then((res) => isLatest() && take(res, !!term)).catch((e) => setErr(reasonOf(e)))
+        api.get(libraryPath(term)).then((res) => isLatest() && take(res, !!term)).catch((e) => setErr(reasonOf(e))).finally(() => show(fromLibrary))
+      } else {
+        show(fromLibrary)
       }
       setWorking(null)
       setBusy(false)
@@ -249,6 +260,8 @@ export function collectionActions({
     const groups = new Map()
     tiles.forEach((ic) => groups.set(ic.source, [...(groups.get(ic.source) || []), refOf(ic)]))
     const answers = []
+    const leaving = tiles.map(refOf)
+    hide(leaving)
     const done = await act(async () => {
       const total = [...groups.values()].reduce((sum, refs) => sum + refs.length, 0)
       let gone = 0
@@ -266,6 +279,10 @@ export function collectionActions({
     })
     if (done) {
       setPicked(new Set())
+    } else {
+      // Part may be gone: the sets are read again, and what is still there shows.
+      show(leaving)
+      reloadCollections.current()
     }
     return done
   }
@@ -278,7 +295,10 @@ export function collectionActions({
     if (confirming?.setIcon) {
       const ic = confirming.setIcon
       setConfirming(null)
-      await act(() => ic.source.provider.remove({ refs: [refOf(ic)], collection: ic.source }))
+      hide([refOf(ic)])
+      if (!(await act(() => ic.source.provider.remove({ refs: [refOf(ic)], collection: ic.source })))) {
+        show([refOf(ic)])
+      }
       focusSoon(giveBack)
       return
     }
@@ -288,12 +308,12 @@ export function collectionActions({
     }
     const sets = removable
     const library = pickedLibrary
+    // The question is answered: it closes now, not when the server is done.
+    setConfirming(null)
     if (sets.length && !(await removeFromSets(sets))) {
-      setConfirming(null)
       return
     }
     await remove(library, { alongside: sets.length > 0 })
-    setConfirming(null)
   }
   async function exportPicked() {
     if (!exporter || !pickedTiles.length || exportTooMany) {

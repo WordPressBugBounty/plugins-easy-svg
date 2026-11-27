@@ -5,7 +5,7 @@ import { useDropZone } from '../../../ui.jsx'
 import { missingMarkup, withMarkup } from '../../lazy-markup.js'
 import { latestOnly } from '../../load-guard.js'
 import { appendUnique, binTotal } from '../../trash-bins.js'
-import { detailIcon, pageWindow, shownIcons } from './library-logic.js'
+import { detailIcon, pageWindow, shownIcons, onScreen } from './library-logic.js'
 import { TOAST_HOLD_MAX_MS, TOAST_MS, TOAST_RECHECK_MS, PANEL_ROOT, STUCK_RANGE, listOf, totalOf, PAGE, PER_PAGE, TRASH_VIEW, TRASH_PAGE, libraryPath } from './helpers.js'
 
 export function useKeyHandler() {
@@ -422,10 +422,12 @@ export function useShownIcons({ collections, icons, landed, query, view }) {
 }
 
 export function usePageItems({
-  all, askedMarkup, busy, icons, loadMore, loadingMore, page, query, setCollections, setPage, shown, total, view,
+  all, askedMarkup, busy, icons, landed, loadMore, loadingMore, page, query, setCollections, setPage, shown, total, view,
 }) {
   // Pages, so the grid never draws more than one page of tiles; library icons are fetched a batch at a time.
-  const { libraryCount, extra, pageCount, onPage, needMore, pageItems } = pageWindow({ all, page, perPage: PER_PAGE, shown, total, view })
+  const paged = pageWindow({ all, page, perPage: PER_PAGE, shown, total, view })
+  const { libraryCount, extra, pageCount, onPage, needMore } = paged
+  const pageItems = useMemo(() => onScreen(paged.pageItems, landed), [paged.pageItems, landed])
   useEffect(() => {
     if (needMore && !loadingMore && !busy && icons !== null) {
       loadMore()

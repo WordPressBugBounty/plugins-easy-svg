@@ -40,6 +40,7 @@ export {
   RatingGroup,
   Separator,
   SimpleGrid,
+  Skeleton,
   Spinner,
   Stack,
   Switch,

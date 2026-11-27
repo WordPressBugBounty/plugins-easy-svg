@@ -30,7 +30,7 @@ export function sidebarView({
   hints, moveSet, neighbour, newSet, newSetRow, openTemplates, pickInRail, providers, railAct, railAnchor,
   railFind, railInline, railModClick, railNear, railPick, railQuery, reloadCollections, runHint, setDeleting,
   setEntries, setImporting, setNewSet, setRailFind, setRailOpen, setRailPick, setRailQuery, setRenaming, setTerm,
-  sortSet, targetSet, view, viewEntries,
+  sortSet, targetSet, libraryDrop, view, viewEntries,
 }) {
   // Shift+F10 and the menu key open the highlighted row's menu, where a right
   // click would; the list keeps the focus, its rows are only highlighted.
@@ -72,16 +72,18 @@ export function sidebarView({
     const canExport = !!c && c.icons.length > 0 && (!!exporter || 'function' === typeof c.provider?.shareLink)
     // A picked row's menu speaks for every picked set, so it follows the pick and the sets themselves.
     const bulk = !!c && railPick.size > 1 && railPick.has(c.id)
+    // The library takes set icons while one is dragged and the add-on moves it there.
+    const takes = (c && targetSet.has(c)) || ('library' === entry.id && libraryDrop)
     return (
       <RailRow
         key={entry.id}
         entry={entry}
         chosen={chosen}
-        lit={!!(dragging && c && targetSet.has(c))}
+        lit={!!(dragging && takes)}
         over={dropOver === `set:${entry.id}`}
         picked={!chosen && !!c && railPick.has(c.id)}
         sortId={sortable ? sortIdOf(c) : null}
-        dropId={c && targetSet.has(c) ? `set:${c.id}` : null}
+        dropId={takes ? `set:${entry.id}` : null}
         busy={busy}
         menu={
           'library' === entry.id

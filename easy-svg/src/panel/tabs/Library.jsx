@@ -6,7 +6,8 @@ import { sortIdOf } from '../rail-sort.jsx'
 import { useBarCover } from '../overlay-top.js'
 import { LuLibrary } from 'react-icons/lu'
 import { __, _x, sprintf } from '@wordpress/i18n'
-import { SkeletonRows, SearchField } from '../../ui.jsx'
+import { SearchField } from '../../ui.jsx'
+import { SkeletonLibrary } from './library/Skeleton.jsx'
 import { Notice, ReportList } from '../parts.jsx'
 import { makeApi } from '../api.js'
 import { getRegistry } from '../registry.js'
@@ -32,7 +33,7 @@ import {
 } from './library/helpers.js'
 import { Tip } from './library/widgets.jsx'
 import { entryOf } from './library/RailRow.jsx'
-import { allPickedIn, emptyHere as isEmptyHere, everyIcon, gridView } from './library/library-logic.js'
+import { allPickedIn, emptyHere as isEmptyHere, everyIcon, gridView, libraryCopierOf, libraryMoverOf, unland } from './library/library-logic.js'
 import { LibraryOff } from './library/LibraryOff.jsx'
 import {
   deleteDialogView,
@@ -307,7 +308,7 @@ export default function Library({ ctx }) {
           setCollectionsFailed(failed)
           // Only a fresh list ends this: lazy markup also changes the list, and would bring the tile back.
           // Kept while drops still wait: their tiles would show again until their own move ran.
-          setLanded((was) => (was.size && !dropsWaiting.current ? new Set() : was))
+          setLanded((was) => (was.size && !dropsWaiting.current ? unland(was, [...was].filter((ref) => !ref.startsWith('easy-svg/'))) : was))
         }
       })
       // Read with the collections: whatever changed a set may have changed what its provider keeps in the trash.
@@ -403,7 +404,7 @@ export default function Library({ ctx }) {
   const droppedOnSet = useRef(false)
   const { collectionTiles, shown } = useShownIcons({ collections, icons, landed, query, view })
   const { libraryCount, extra, pageCount, onPage, needMore, pageItems } = usePageItems({
-    all, askedMarkup, busy, icons, loadMore, loadingMore, page, query, setCollections, setPage, shown, total, view,
+    all, askedMarkup, busy, icons, landed, loadMore, loadingMore, page, query, setCollections, setPage, shown, total, view,
   })
   // Removing reaches the library's and a writable set's icons, never a folder's.
   // Names carried twice in this view also show their slug, as the media library does.
@@ -412,6 +413,11 @@ export default function Library({ ctx }) {
   // Where a tile may go: a collection that is not read only, of a provider
   // that takes moves.
   const targets = collections.filter((c) => !c.readonly && c.provider && 'function' === typeof c.provider.move)
+  // The library as a place to move set icons to, where the add-on takes them.
+  const libraryTarget = (tiles) => {
+    const provider = libraryMoverOf(tiles)
+    return provider ? { id: 'easy-svg', label: __('Icon library', 'easy-svg'), icons: [], provider } : null
+  }
   const { detailIc, detailCover } = useDetailIcon({ collectionTiles, details, icons })
   // The open tool, looked up once: its drawer and its cover of the bar.
   const toolList = ctx.tools || []
@@ -512,10 +518,14 @@ export default function Library({ ctx }) {
   const pickedIcons = trashItems.filter((ic) => trashPicked.has(ic.id))
   const pickedEntries = trashEntries.filter((row) => trashPicked.has(row.key))
 
+  // The library's own tiles, by their ids, as the grid names them.
+  const refsOfIds = (ids) => all.filter((ic) => ids.includes(ic.id)).map(refOf)
+  const hide = (refs) => setLanded((was) => new Set([...was, ...refs]))
+  const show = (refs) => setLanded((was) => unland(was, refs))
   const { remove, markTrashRow, openTrash, restoreTrashed, restorePicked, restoreEntry, confirmPurge } = trashActions({
     api, bins, choose, clear, confirming, ctx, focusSoon, keep, loadTrash, pickedEntries, pickedIcons,
     reloadCollections, setBusy, setConfirming, setErr, setMoved, setPicked, setSelecting, setStatus,
-    setTrashPicked, take, trashAt, view,
+    setTrashPicked, take, trashAt, view, refsOfIds, hide, show, query,
   })
   const pasteLabel = __('Paste SVG code', 'easy-svg')
 
@@ -551,7 +561,7 @@ export default function Library({ ctx }) {
     focusSoon, giveBack, moved, pickedLibrary, pickedTiles, query, queryRef, reloadCollections, remember,
     removable, remove, renamer, rule, ruleRename, setBusy, setConfirming, setErr, setMoved, setPicked, setRule,
     setRuleRename, setStatus, setView, setWorking, take, view,
-    setCollections, collectionsNow, setLanded,
+    setCollections, collectionsNow, setLanded, hide, show,
   })
   // Drops wait their turn instead of being lost while the one before still runs; each turn takes the newest moveTo.
   moveNow.current = moveTo
@@ -572,7 +582,7 @@ export default function Library({ ctx }) {
     act, allPicked, api, clear, copyTargetsOf, copyTo, ctx, keep, moveTarget, moveTo, moving, pickEvery, recentSets,
     reloadCollections, remember, setBusy, setConfirming, setCopyHelp, setDetails, setDraftName, setErr,
     setMoveNaming, setMoveQuery, setMoveTarget, setMoved, setMoving, setPicked, setRecentSets, setStatus, shown,
-    take, targets,
+    take, targets, libraryTarget,
   })
   // A declaration, hoisted as the handler was: the drop zone above the early return takes it before fileAdder runs.
   function addFiles(fileList) {
@@ -646,7 +656,7 @@ export default function Library({ ctx }) {
   const detailsDialog = detailsDialogView({
     busy, closeDetails, copierOf, copyTargetsOf, copyTo, ctx, detailCover, detailIc, details, draftName,
     focusIfLost, giveBack, lastDetail, moveTo, openMove, railCache, remember, removeIcon, rename, setDetails,
-    setDraftName, switchIcons, targets,
+    setDraftName, switchIcons, libraryTarget, targets,
   })
 
   // A set's export: a ZIP for this computer, or a link another site imports.
@@ -710,7 +720,7 @@ export default function Library({ ctx }) {
   }
 
   if (icons === null) {
-    return <SkeletonRows rows={3} />
+    return <SkeletonLibrary />
   }
 
   const pickedSets = collections.filter((c) => railPick.has(c.id))
@@ -743,6 +753,7 @@ export default function Library({ ctx }) {
   const sortIds = sortKept.current
   const sortSet = new Set(sortIds)
   const targetSet = new Set(targets)
+  const libraryDrop = !!libraryTarget((activeDrag?.refs || []).map((ref) => collectionTiles.find((ic) => refOf(ic) === ref) || {}))
   const railNear = setTerm ? new Map() : railNeighbours(collections, sortOwn)
   const sortedById = (id) => collections.find((c) => sortIdOf(c) === String(id))
   // One place up or down among its provider's sets: Alt and an arrow, or the menu.
@@ -767,7 +778,7 @@ export default function Library({ ctx }) {
     hints, moveSet, neighbour, newSet, newSetRow, openTemplates, pickInRail, providers, railAct, railAnchor,
     railFind, railInline, railModClick, railNear, railPick, railQuery, reloadCollections, runHint, setDeleting,
     setEntries, setImporting, setNewSet, setRailFind, setRailOpen, setRailPick, setRailQuery, setRenaming, setTerm,
-    sortSet, targetSet, view, viewEntries,
+    sortSet, targetSet, libraryDrop, view, viewEntries,
   })
   const railDrawer = railDrawerView({ railButton, railCover, railOpen, setRailOpen, sidebar, sortIds })
 
@@ -833,12 +844,14 @@ export default function Library({ ctx }) {
   const anyOff = switchable.some((ic) => ic.off)
   // A read-only pick is copied from the menu too, as from the bar.
   const bulkCopier = copierOf(pickedTiles)
+  const bulkLibrary = libraryCopierOf(pickedTiles)
+  const movable = (!bulkCopier && targets.length && pickedTiles.some((ic) => !ic.source?.readonly)) || !!libraryTarget(pickedTiles)
   const bulkActions = {
     count: pickedTiles.length,
     anyOn,
     anyOff,
-    onMove: !bulkCopier && targets.length && pickedTiles.some((ic) => !ic.source?.readonly) ? () => { remember(); openMove(pickedTiles) } : null,
-    onCopyLibrary: bulkCopier ? () => copyTo(bulkCopier, 'easy-svg', pickedTiles.map(refOf)) : null,
+    onMove: movable ? () => { remember(); openMove(pickedTiles) } : null,
+    onCopyLibrary: bulkLibrary ? () => copyTo(bulkLibrary, 'easy-svg', pickedTiles.map(refOf)) : null,
     onCopySet: bulkCopier && copyTargetsOf(bulkCopier).length ? () => { remember(); openMove(pickedTiles, bulkCopier) } : null,
     onOff: switchable.length ? () => switchIcons(switchable, true) : null,
     onOn: switchable.length ? () => switchIcons(switchable, false) : null,
@@ -900,7 +913,7 @@ export default function Library({ ctx }) {
     editSet, emptyHere, exportPicked, exportTooMany, exporter, focusIfLost, leaveEditing, one, openDetails,
     openMove, openRuleRename, own, picked, pickedEntries, pickedIcons, pickedTiles, railButton, railInline,
     remember, removeIcon, removePicked, removing, renamer, restorePicked, search, selecting, setRailOpen,
-    setSelecting, switchIcons, targets, toggleAll, toggleAllTrash, tools, trashAll, trashKeys, trashOpen,
+    setSelecting, switchIcons, libraryTarget, targets, toggleAll, toggleAllTrash, tools, trashAll, trashKeys, trashOpen,
     trashTotal,
   })
 
@@ -916,7 +929,7 @@ export default function Library({ ctx }) {
     dropMove, flipFrom, grid, headerAction, importSetDialog, noSvgNotice, messages, moveDialog, moved, needMore, openDetails,
     openMove, openTrash, orderSaid, pageItems, pager, pasteDialog, pasteLabel, picked, pickedTiles, progress,
     query, railDrawer, railInline, remember, removeIcon, renameSetDialog, reorderSets, reportBox, ruleRenameDialog,
-    searching, selecting, sensors, setActiveDrag, setDragging, setDropOver, setErr, setLanded, setMoved,
+    searching, libraryTarget, selecting, sensors, setActiveDrag, setDragging, setDropOver, setErr, setLanded, setMoved,
     setPasting, setQuery, setStatus, setUploadOpen, shown, sidebar, snapTiles, sortIds, sortedById,
     status, stickyRef, switchIcons, targets, templatesDialog, tiles, toastTrash, toastUndo, togglePicked,
     toolDrawer, toolbar, trashBody, trashHead, trashOpen, undoMove, uploadOpen, view, working,

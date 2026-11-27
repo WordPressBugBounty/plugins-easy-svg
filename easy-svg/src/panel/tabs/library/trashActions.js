@@ -1,12 +1,12 @@
 import { __, _n, sprintf } from '@wordpress/i18n'
 import { chunksOf, deleteInChunks, emptyPaged, inChunks, unreadBins } from '../../trash-bins.js'
-import { PANEL_ROOT, listOf, TRASH_VIEW, TRASH_PAGE, restoredSaid } from './helpers.js'
+import { PANEL_ROOT, libraryPath, listOf, TRASH_VIEW, TRASH_PAGE, restoredSaid } from './helpers.js'
 
 // Called once per render of Library, as the handlers were declared there: each closure reads that render's state.
 export function trashActions({
   api, bins, choose, clear, confirming, ctx, focusSoon, keep, loadTrash, pickedEntries, pickedIcons,
   reloadCollections, setBusy, setConfirming, setErr, setMoved, setPicked, setSelecting, setStatus,
-  setTrashPicked, take, trashAt, view,
+  setTrashPicked, take, trashAt, view, refsOfIds, hide, show, query,
 }) {
   // One id or a selection, a hundred to a request, each answered with the library once.
   // `alongside`: part of a bulk removal whose set half already spoke; its
@@ -18,6 +18,9 @@ export function trashActions({
     }
     setBusy(true)
     clear()
+    const leaving = refsOfIds(list)
+    hide(leaving)
+    setConfirming(null)
     // `trashed` is what went to the trash and can come back; a site that keeps no trash answers `trashed: false`.
     // A delete that fails midway still leaves the ones before it done: they keep their message and their Undo.
     const { gone, trashed, fresh, error } = await deleteInChunks(list, (ids) => api.post('/library/delete-many', { ids, limit: keep() }), TRASH_PAGE)
@@ -68,7 +71,15 @@ export function trashActions({
     } finally {
       if (fresh) {
         take(fresh)
+      } else if (gone) {
+        // Stopped without a list: part may be gone, so the library is read before anything shows again.
+        try {
+          take(await api.get(libraryPath(query.trim())))
+        } catch (e) {
+          setErr(e.message)
+        }
       }
+      show(leaving)
       setPicked(new Set())
       setConfirming(null)
       setBusy(false)

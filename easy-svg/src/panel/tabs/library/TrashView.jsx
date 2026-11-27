@@ -1,6 +1,7 @@
 import { Button, Flex, SimpleGrid, Stack, Text, Heading } from '@chakra-ui/react'
 import { __, _n, sprintf } from '@wordpress/i18n'
-import { SkeletonRows, EmptyState as Nothing } from '../../../ui.jsx'
+import { EmptyState as Nothing } from '../../../ui.jsx'
+import { SkeletonTiles } from './Skeleton.jsx'
 import { Notice } from '../../parts.jsx'
 import { IconTile } from './IconTile.jsx'
 import { TrashRow } from './Trash.jsx'
@@ -32,7 +33,7 @@ export function trashBodyView({
 }) {
   return (
     <Stack gap="6">
-      {null === trash ? <SkeletonRows rows={2} /> : null}
+      {null === trash ? <SkeletonTiles count={4} /> : null}
       {trash?.error ? (
         <Notice bad role="alert" data-trash-failed title={__('The icons in the trash could not be loaded.', 'easy-svg')} retry={__('Try again', 'easy-svg')} onRetry={loadTrash}>
           {trash.error}

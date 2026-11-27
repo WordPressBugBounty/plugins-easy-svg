@@ -31,6 +31,43 @@ export function landedRefs({ refs, target, collectionTiles }) {
   return new Set(refs.filter((ref) => !locked.has(ref) && !ref.startsWith(`${target.id}/`)))
 }
 
+// What is moving or being deleted is off the page before the server answers.
+export function onScreen(items, landed) {
+  return landed.size ? items.filter((ic) => !landed.has(refOf(ic))) : items
+}
+
+export function unland(landed, refs) {
+  if (!refs.some((ref) => landed.has(ref))) {
+    return landed
+  }
+  const left = new Set(landed)
+  refs.forEach((ref) => left.delete(ref))
+  return left
+}
+
+// What did not really leave its place: no row says it moved. Without rows nothing is known, so all of it.
+export function notMoved({ going, rows }) {
+  if (!Array.isArray(rows) || !rows.length) {
+    return going
+  }
+  const moved = new Set(rows.filter((r) => 'moved' === r?.state).map((r) => r.ref))
+  return going.filter((ref) => !moved.has(ref))
+}
+
+// The add-on that takes these set icons into the library: it has to say it can, and library icons are there already.
+export function libraryMoverOf(tiles) {
+  const own = tiles.filter((ic) => ic.source && !ic.source.readonly)
+  const p = own[0]?.source.provider
+  const all = tiles.every((ic) => ic.source) && own.every((ic) => ic.source.provider === p)
+  return all && p?.movesToLibrary && 'function' === typeof p.move ? p : null
+}
+
+// Any set's icons, own or read only, may also be copied there and stay where they are.
+export function libraryCopierOf(tiles) {
+  const p = tiles[0]?.source?.provider
+  return p && 'function' === typeof p.copy && tiles.every((ic) => ic.source?.provider === p) ? p : null
+}
+
 // No fly-back: an icon over a set, or let go on one, stays where the pointer left it.
 export function dropAnimation({ dropOver, droppedOnSet }) {
   return dropOver || droppedOnSet ? null : { duration: 200, easing: 'ease-out' }

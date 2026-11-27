@@ -7,7 +7,7 @@ export function editActions({
   act, allPicked, api, clear, copyTargetsOf, copyTo, ctx, keep, moveTarget, moveTo, moving, pickEvery, recentSets,
   reloadCollections, remember, setBusy, setConfirming, setCopyHelp, setDetails, setDraftName, setErr,
   setMoveNaming, setMoveQuery, setMoveTarget, setMoved, setMoving, setPicked, setRecentSets, setStatus, shown,
-  take, targets,
+  take, targets, libraryTarget,
 }) {
   function openDetails(ic, focus = null) {
     remember()
@@ -25,13 +25,14 @@ export function editActions({
       refs: list.map(refOf),
       copies: list.every((ic) => !ic.source),
       from: 1 === list.length ? list[0].collection : null,
+      library: copier ? null : libraryTarget(list),
     })
     setMoveTarget('')
     setMoveQuery('')
     setMoveNaming(null)
   }
   function confirmMove() {
-    const collection = targets.find((c) => c.id === moveTarget)
+    const collection = [moving?.library, ...targets].find((c) => c && c.id === moveTarget)
     const refs = moving?.refs || []
     setMoving(null)
     closeDetails()

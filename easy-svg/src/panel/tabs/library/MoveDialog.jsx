@@ -24,9 +24,8 @@ export function moveDialogView({
 }) {
   // Where a move or copy goes, chosen in a dialog: the way that needs no drag.
   const moveTerm = moveQuery.trim().toLowerCase()
-  const moveList = moving
-    ? (moving.copy ? copyTargetsOf(moving.copy) : targets).filter((c) => c.id !== moving.from && (!moveTerm || (c.label || c.id).toLowerCase().includes(moveTerm)))
-    : []
+  const places = moving ? (moving.copy ? copyTargetsOf(moving.copy) : [moving.library, ...targets].filter(Boolean)) : []
+  const moveList = places.filter((c) => c.id !== moving?.from && (!moveTerm || (c.label || c.id).toLowerCase().includes(moveTerm)))
   // The sets moved to last, first: what someone sorting icons reaches for again.
   const recentList = recentSets.map((id) => moveList.find((c) => c.id === id)).filter(Boolean)
   const restList = moveList.filter((c) => !recentList.includes(c))
@@ -80,7 +79,7 @@ export function moveDialogView({
           <Hold open={!!moving}>
           <Dialog.Header flexDirection="column" alignItems="flex-start" gap="1" pb="2" css={{ "& > p": { marginTop: 0 } }}>
             <Dialog.Title fontSize="ui.xl" fontWeight="bold" color="ui.heading">
-              {moving?.copy ? __('Copy to a set', 'easy-svg') : __('Move to a set', 'easy-svg')}
+              {moving?.copy ? __('Copy to a set', 'easy-svg') : moving?.library ? __('Move icons', 'easy-svg') : __('Move to a set', 'easy-svg')}
             </Dialog.Title>
             <Text fontSize="ui.body" color="ui.muted">
               {sprintf(
@@ -192,7 +191,7 @@ export function moveDialogView({
               <Dialog.ActionTrigger asChild>
                 <Button variant="outline">{__('Cancel', 'easy-svg')}</Button>
               </Dialog.ActionTrigger>
-              <Button variant="solid" size="sm" disabled={busy || !(moving?.copy ? copyTargetsOf(moving.copy) : targets).some((c) => c.id === moveTarget)} onClick={confirmMove}>
+              <Button variant="solid" size="sm" disabled={busy || !places.some((c) => c.id === moveTarget)} onClick={confirmMove}>
                 {moving?.copy ? _x('Copy', 'make a copy of the icon', 'easy-svg') : __('Move', 'easy-svg')}
               </Button>
             </HStack>

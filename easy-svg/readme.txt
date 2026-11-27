@@ -4,7 +4,7 @@ Tags: svg, svg upload, icons, icon block, sanitize
 Requires at least: 6.6
 Tested up to: 7.2
 Requires PHP: 8.0
-Stable tag: 5.0.2
+Stable tag: 5.0.3
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -257,6 +257,12 @@ Easy SVG is built on these open source projects. Thank you.
 
 == Changelog ==
 
+= 5.0.3 (2026-11-27) =
+* New: icons of your own sets can be copied into the library, or moved there by dragging them onto Library.
+* Changed: an icon that is moved or deleted leaves the library at once. If the change fails, it comes back.
+* Changed: while the library loads, its placeholder has the shape of the screen.
+* New: a Live Preview on the plugin page on WordPress.org.
+
 = 5.0.2 (2026-11-26) =
 * New: icons in the Icon block can link to a page, a URL or a jump mark such as #prices, with the editor's own link field. The link is named for screen readers and says when it opens a new tab.
 * Changed: when icon sets are installed, the search finds icons in the library and in every set, in place of the All icons entry in the rail.
@@ -333,6 +339,9 @@ Easy SVG is built on these open source projects. Thank you.
 Older versions: see the "Advanced View" of this plugin on WordPress.org.
 
 == Upgrade Notice ==
+
+= 5.0.3 =
+Moved and deleted icons leave the library at once; set icons can be copied into the library.
 
 = 5.0.2 =
 Icons in the Icon block can link, and Font Awesome icons keep their licence comment when cleaned.

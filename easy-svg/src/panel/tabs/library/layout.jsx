@@ -18,12 +18,13 @@ import { snapCenterToCursor } from '@dnd-kit/modifiers'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { isSortId, railCollide } from '../../rail-sort.jsx'
 import { __, _n, sprintf } from '@wordpress/i18n'
-import { SkeletonRows, EmptyState as Nothing, useToastLift } from '../../../ui.jsx'
+import { EmptyState as Nothing, useToastLift } from '../../../ui.jsx'
+import { SkeletonTiles } from './Skeleton.jsx'
 import { BatchProgress } from './BatchProgress.jsx'
 import { IconTile } from './IconTile.jsx'
 import { callForms, refOf, STICKY_BAR, UploadGlyph, TRASH_VIEW, GRID_COLUMNS } from './helpers.js'
 import { DragPicture } from './widgets.jsx'
-import { dropAnimation, landedRefs } from './library-logic.js'
+import { dropAnimation, landedRefs, libraryCopierOf } from './library-logic.js'
 
 // The library's own toast joins the kit's stack, so it never covers a toast another screen part shows.
 function LiftedToast(props) {
@@ -45,7 +46,7 @@ export function libraryLayoutView({
   dropMove, flipFrom, grid, headerAction, importSetDialog, noSvgNotice, messages, moveDialog, moved, needMore, openDetails,
   openMove, openTrash, orderSaid, pageItems, pager, pasteDialog, pasteLabel, picked, pickedTiles, progress,
   query, railDrawer, railInline, remember, removeIcon, renameSetDialog, reorderSets, reportBox, ruleRenameDialog,
-  searching, selecting, sensors, setActiveDrag, setDragging, setDropOver, setErr, setLanded, setMoved,
+  searching, libraryTarget, selecting, sensors, setActiveDrag, setDragging, setDropOver, setErr, setLanded, setMoved,
   setPasting, setQuery, setStatus, setUploadOpen, shown, sidebar, snapTiles, sortIds, sortedById,
   status, stickyRef, switchIcons, targets, templatesDialog, tiles, toastTrash, toastUndo, togglePicked,
   toolDrawer, toolbar, trashBody, trashHead, trashOpen, undoMove, uploadOpen, view, working,
@@ -176,7 +177,8 @@ export function libraryLayoutView({
             reorderSets(String(active.id), over ? String(over.id) : '')
             return
           }
-          const target = over ? targets.find((c) => `set:${c.id}` === String(over.id)) : null
+          const dropped = 'set:library' === String(over?.id) ? libraryTarget((activeDrag?.refs || []).map((ref) => collectionTiles.find((ic) => refOf(ic) === ref) || {})) : null
+          const target = over ? dropped || targets.find((c) => `set:${c.id}` === String(over.id)) : null
           const refs = activeDrag?.refs || []
           document.body.style.cursor = ''
           flipFrom.current = snapTiles()
@@ -309,7 +311,7 @@ export function libraryLayoutView({
               ic={ic}
               busy={busy}
               // Only with the sets in sight: below lg they sit in a closed drawer, and Move takes over.
-              canDrag={railInline && targets.length > 0 && !ic.source?.readonly}
+              canDrag={railInline && (targets.length > 0 || !!libraryTarget([ic])) && !ic.source?.readonly}
               selecting={selecting}
               picked={picked.has(ic.id)}
               bulk={picked.has(ic.id) && picked.size > 1 ? bulkActions : null}
@@ -320,10 +322,10 @@ export function libraryLayoutView({
               onRename={ic.readonly && !ic.canRename ? null : () => openDetails(ic, 'name')}
               onCopy={(form) => copyCall(ic, form)}
               forms={callForms(ic, ctx.iconBlock)}
-              onCopyLibrary={copierOf([ic]) ? () => copyTo(copierOf([ic]), 'easy-svg', [refOf(ic)]) : null}
+              onCopyLibrary={libraryCopierOf([ic]) ? () => copyTo(libraryCopierOf([ic]), 'easy-svg', [refOf(ic)]) : null}
               onCopySet={copierOf([ic]) && copyTargetsOf(copierOf([ic])).length ? () => { remember(); openMove([ic], copierOf([ic])) } : null}
               onMove={
-                !ic.source?.readonly && targets.some((c) => c.id !== ic.collection)
+                !ic.source?.readonly && (targets.some((c) => c.id !== ic.collection) || libraryTarget([ic]))
                   ? () => {
                       remember()
                       openMove([ic])
@@ -336,7 +338,7 @@ export function libraryLayoutView({
 
           {/* A real <button> as the last tile, so the keyboard reaches it. */}
         </SimpleGrid>
-        {needMore ? <Box pt="3"><SkeletonRows rows={2} /></Box> : null}
+        {needMore ? <Box pt="3"><SkeletonTiles count={4} /></Box> : null}
         {/* Stays in reach at the bottom of the window: with dozens of pages, scrolling down for it each time is the slow part. */}
         {pager ? <Flex data-pager-bar position="sticky" bottom="var(--esw-foot-h, 0)" zIndex="4" mt="5" py="3" justify="center" bg="ui.bg" css={{ '&::before': { content: '""', position: 'absolute', insetInline: '0', bottom: '100%', height: '14', pointerEvents: 'none', bgImage: 'linear-gradient(to bottom, transparent, {colors.ui.bg})' } }}>{pager}</Flex> : null}
 

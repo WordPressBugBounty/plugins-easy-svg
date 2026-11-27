@@ -21,12 +21,13 @@ import { LuCheck, LuEyeOff, LuPencil, LuX } from 'react-icons/lu'
 import { __, sprintf } from '@wordpress/i18n'
 import { LockGlyph, isLocked, lockedBy } from '../../origin.js'
 import { sanitizeSvg, scopeSvgIds, CHECKER, callForms, nameOf, refOf, CopyGlyph, TrashGlyph } from './helpers.js'
+import { libraryCopierOf } from './library-logic.js'
 import { DetailRow, Hold, PickOne } from './widgets.jsx'
 
 export function detailsDialogView({
   busy, closeDetails, copierOf, copyTargetsOf, copyTo, ctx, detailCover, detailIc, details, draftName,
   focusIfLost, giveBack, lastDetail, moveTo, openMove, railCache, remember, removeIcon, rename, setDetails,
-  setDraftName, switchIcons, targets,
+  setDraftName, switchIcons, libraryTarget, targets,
 }) {
   // Where the clipboard API is missing, the text still sits selectable in the field.
   const copyField = (key, fieldLabel, text, help) => (
@@ -67,7 +68,8 @@ export function detailsDialogView({
     const renamable = !(ic.readonly && !ic.canRename)
     const deletable = !(ic.readonly && !ic.canRemove)
     const where = ic.source ? ic.source.label || ic.source.id : __('Icon library', 'easy-svg')
-    const elsewhere = targets.filter((c) => c.id !== ic.collection)
+    const elsewhere = [libraryTarget([ic]), ...targets].filter((c) => c && c.id !== ic.collection)
+    const libraryCopy = !copierOf([ic]) && libraryCopierOf([ic])
     // A read-only source offers copies instead of the collection choice.
     const detailCopier = copierOf([ic])
     return (
@@ -266,14 +268,15 @@ export function detailsDialogView({
                           })),
                         ]}
                         onChange={async (id) => {
-                          const target = targets.find((c) => c.id === id)
+                          const target = elsewhere.find((c) => c.id === id)
                           if (target) {
                             const slug = ic.slug
                             const fromSet = !!ic.source
                             await moveTo(target, [refOf(ic)])
                             // A set's icon went: the details follow it. A library
                             // icon was copied and is still here as it was.
-                            if (fromSet) {
+                            // Into the library it gets a library id: the window closes with the tile.
+                            if (fromSet && 'easy-svg' !== target.id) {
                               setDetails((d) => (d ? { ...d, follow: { set: target.id, slug } } : d))
                             }
                           }
@@ -284,6 +287,13 @@ export function detailsDialogView({
                     )}
                   </DetailRow>
                 </DataList.Root>
+                {libraryCopy ? (
+                  <HStack data-detail-copy mt="3" mb="4" ms={{ sm: 'calc({sizes.28} + {spacing.4})' }}>
+                    <Button variant="plain" size="sm" px="0" h="auto" fontWeight="normal" color="ui.muted" textDecoration="underline" _hover={{ color: 'ui.primary' }} disabled={busy} onClick={() => { closeDetails(); copyTo(libraryCopy, 'easy-svg', [refOf(ic)]).then(focusIfLost) }}>
+                      {__('Copy to library', 'easy-svg')}
+                    </Button>
+                  </HStack>
+                ) : null}
                 {detailCopier ? (
                   <HStack data-detail-copy gap="5" flexWrap="wrap" mt="3" mb="4" ms={{ sm: 'calc({sizes.28} + {spacing.4})' }}>
                     <Button variant="plain" size="sm" px="0" h="auto" fontWeight="normal" color="ui.muted" textDecoration="underline" _hover={{ color: 'ui.primary' }} disabled={busy} onClick={() => { closeDetails(); copyTo(detailCopier, 'easy-svg', [refOf(ic)]).then(focusIfLost) }}>

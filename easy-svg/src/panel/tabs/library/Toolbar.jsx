@@ -23,6 +23,7 @@ import {
 import { __, _n, sprintf } from '@wordpress/i18n'
 import { CopyFormLabel } from './IconTile.jsx'
 import { callForms, refOf, PANEL_ROOT, BAR_BUTTON, MENU_FIXED, MENU_CONTENT, CopyGlyph, MoveGlyph, RenameGlyph, TrashGlyph, RestoreGlyph } from './helpers.js'
+import { libraryCopierOf } from './library-logic.js'
 import { Tip } from './widgets.jsx'
 
 export function toolbarView({
@@ -30,7 +31,7 @@ export function toolbarView({
   editSet, emptyHere, exportPicked, exportTooMany, exporter, focusIfLost, leaveEditing, one, openDetails,
   openMove, openRuleRename, own, picked, pickedEntries, pickedIcons, pickedTiles, railButton, railInline,
   remember, removeIcon, removePicked, removing, renamer, restorePicked, search, selecting, setRailOpen,
-  setSelecting, switchIcons, targets, toggleAll, toggleAllTrash, tools, trashAll, trashKeys, trashOpen,
+  setSelecting, switchIcons, libraryTarget, targets, toggleAll, toggleAllTrash, tools, trashAll, trashKeys, trashOpen,
   trashTotal,
 }) {
   // Below lg the rail is a drawer; this opens it, from the grid's toolbar and from the Trash view.
@@ -129,6 +130,14 @@ export function toolbarView({
               </Tip>
             ) : null}
             {/* A read-only source is copied, not moved; the bar says so. */}
+            {/* An own set's icons are copied to the library too; read-only picks have it below. */}
+            {!copierOf([one]) && libraryCopierOf([one]) ? (
+              <Tip label={__('Copy to library', 'easy-svg')}>
+                <IconButton {...BAR_BUTTON} data-copy-to="library" aria-label={__('Copy to library', 'easy-svg')} disabled={busy} onClick={() => { remember(); copyTo(libraryCopierOf([one]), 'easy-svg', [one].map(refOf)).then(focusIfLost) }}>
+                  <LuLibrary />
+                </IconButton>
+              </Tip>
+            ) : null}
             {copierOf([one]) ? (
               <>
                 <Tip label={__('Copy to library', 'easy-svg')}>
@@ -144,7 +153,7 @@ export function toolbarView({
                   </Tip>
                 ) : null}
               </>
-            ) : !one.source?.readonly && targets.some((c) => c.id !== one.collection) ? (
+            ) : !one.source?.readonly && (targets.some((c) => c.id !== one.collection) || libraryTarget([one])) ? (
               <Tip label={__('Move', 'easy-svg')}>
                 <IconButton {...BAR_BUTTON} aria-label={__('Move', 'easy-svg')} disabled={busy} onClick={() => { remember(); openMove([one]) }}>
                   <MoveGlyph />
@@ -182,6 +191,14 @@ export function toolbarView({
           </>
         ) : picked.size > 1 ? (
           <>
+            {/* An own set's icons are copied to the library too; read-only picks have it below. */}
+            {!copierOf(pickedTiles) && libraryCopierOf(pickedTiles) ? (
+              <Tip label={__('Copy to library', 'easy-svg')}>
+                <IconButton {...BAR_BUTTON} data-copy-to="library" aria-label={__('Copy to library', 'easy-svg')} disabled={busy} onClick={() => { remember(); copyTo(libraryCopierOf(pickedTiles), 'easy-svg', pickedTiles.map(refOf)).then(focusIfLost) }}>
+                  <LuLibrary />
+                </IconButton>
+              </Tip>
+            ) : null}
             {copierOf(pickedTiles) ? (
               <>
                 <Tip label={__('Copy to library', 'easy-svg')}>
@@ -197,7 +214,7 @@ export function toolbarView({
                   </Tip>
                 ) : null}
               </>
-            ) : targets.length && pickedTiles.some((ic) => !ic.source?.readonly) ? (
+            ) : (targets.length && pickedTiles.some((ic) => !ic.source?.readonly)) || libraryTarget(pickedTiles) ? (
               <Tip label={__('Move', 'easy-svg')}>
                 <IconButton {...BAR_BUTTON} aria-label={__('Move', 'easy-svg')} disabled={busy} onClick={() => { remember(); openMove(pickedTiles) }}>
                   <MoveGlyph />
